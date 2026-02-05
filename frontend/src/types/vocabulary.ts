@@ -11,6 +11,11 @@ export enum ReviewQuality {
     EASY = 3,
 }
 
+export interface VocabularyReview {
+    review_quality: ReviewQuality;
+    time_spent_seconds: number;
+}
+
 export interface Vocabulary {
     id: number;
     user_id: number;

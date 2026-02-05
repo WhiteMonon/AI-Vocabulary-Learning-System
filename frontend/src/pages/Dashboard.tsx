@@ -26,13 +26,13 @@ const Dashboard: React.FC = () => {
                     <p className="text-sm text-gray-500">Quản lý và theo dõi danh sách từ đã học.</p>
                 </Link>
 
-                <div className="p-6 border rounded-xl hover:border-green-500 hover:shadow-md transition-all group bg-white cursor-pointer opacity-60">
+                <Link to="/vocabulary/review" className="p-6 border rounded-xl hover:border-green-500 hover:shadow-md transition-all group bg-white cursor-pointer">
                     <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-100 transition-colors">
                         <Brain className="text-green-600" size={24} />
                     </div>
                     <h3 className="font-bold text-gray-900 mb-2">Ôn tập (SRS)</h3>
-                    <p className="text-sm text-gray-500">Học theo thuật toán lặp lại ngắt quãng (Sắp ra mắt).</p>
-                </div>
+                    <p className="text-sm text-gray-500">Học theo thuật toán lặp lại ngắt quãng (SM-2).</p>
+                </Link>
 
                 <div className="p-6 border rounded-xl hover:border-purple-500 hover:shadow-md transition-all group bg-white cursor-pointer opacity-60">
                     <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-100 transition-colors">

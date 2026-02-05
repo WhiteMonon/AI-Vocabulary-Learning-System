@@ -6,6 +6,7 @@ import NotFound from './pages/NotFound';
 import VocabularyList from './pages/vocabulary/VocabularyList';
 import AddVocabulary from './pages/vocabulary/AddVocabulary';
 import EditVocabulary from './pages/vocabulary/EditVocabulary';
+import ReviewSession from './pages/vocabulary/ReviewSession';
 import { useAuth } from './context/AuthContext';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -35,6 +36,7 @@ function App() {
           <Route path="vocabulary" element={<VocabularyList />} />
           <Route path="vocabulary/new" element={<AddVocabulary />} />
           <Route path="vocabulary/:id/edit" element={<EditVocabulary />} />
+          <Route path="vocabulary/review" element={<ReviewSession />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

@@ -4,7 +4,8 @@ import {
     VocabularyCreate,
     VocabularyUpdate,
     VocabularyListResponse,
-    VocabularyFilters
+    VocabularyFilters,
+    VocabularyReview
 } from '../types/vocabulary';
 
 export const getVocabularies = async (filters: VocabularyFilters = {}): Promise<VocabularyListResponse> => {
@@ -31,4 +32,9 @@ export const updateVocabulary = async (id: number, vocab: VocabularyUpdate): Pro
 
 export const deleteVocabulary = async (id: number): Promise<void> => {
     await apiClient.delete(`/api/v1/vocabulary/${id}`);
+};
+
+export const reviewVocabulary = async (id: number, review: VocabularyReview): Promise<Vocabulary> => {
+    const { data } = await apiClient.post<Vocabulary>(`/api/v1/vocabulary/${id}/review`, review);
+    return data;
 };
