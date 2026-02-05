@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getMeApi } from '../api/auth';
 
 interface User {
-    id: string;
+    id: number;
     email: string;
     username: string;
+    full_name: string | null;
 }
 
 interface AuthContextType {
@@ -20,12 +22,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            // Logic để fetch user profile nếu cần
-            // setUser(userData);
-        }
-        setLoading(false);
+        const initAuth = async () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const userData = await getMeApi();
+                    setUser(userData);
+                } catch (error) {
+                    console.error('Failed to fetch user:', error);
+                    localStorage.removeItem('token');
+                }
+            }
+            setLoading(false);
+        };
+        initAuth();
     }, []);
 
     const login = (token: string, userData: User) => {
