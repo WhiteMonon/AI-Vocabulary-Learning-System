@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, LayoutDashboard, Settings, User } from 'lucide-react';
+import { LogOut, LayoutDashboard, Settings, User, BookOpen } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
     const { user, logout } = useAuth();
@@ -43,6 +43,13 @@ const MainLayout: React.FC = () => {
                         >
                             <LayoutDashboard className="mr-3 h-5 w-5 text-gray-400" />
                             Tổng quan
+                        </Link>
+                        <Link
+                            to="/vocabulary"
+                            className="flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                        >
+                            <BookOpen className="mr-3 h-5 w-5 text-gray-400" />
+                            Từ vựng
                         </Link>
                         <Link
                             to="/profile"

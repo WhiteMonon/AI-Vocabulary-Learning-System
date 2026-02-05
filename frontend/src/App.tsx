@@ -3,6 +3,9 @@ import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
+import VocabularyList from './pages/vocabulary/VocabularyList';
+import AddVocabulary from './pages/vocabulary/AddVocabulary';
+import EditVocabulary from './pages/vocabulary/EditVocabulary';
 import { useAuth } from './context/AuthContext';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -29,12 +32,14 @@ function App() {
           }
         >
           <Route index element={<Dashboard />} />
-          {/* Thêm các route khác ở đây */}
+          <Route path="vocabulary" element={<VocabularyList />} />
+          <Route path="vocabulary/new" element={<AddVocabulary />} />
+          <Route path="vocabulary/:id/edit" element={<EditVocabulary />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </Router>
+    </Router >
   );
 }
 

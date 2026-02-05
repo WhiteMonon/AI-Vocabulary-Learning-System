@@ -1,0 +1,255 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+    Plus,
+    Search,
+    Edit,
+    Trash2,
+    Filter,
+    ChevronLeft,
+    ChevronRight,
+    Loader2,
+    BookOpen
+} from 'lucide-react';
+import { useVocabularies, useDeleteVocabulary } from '../../hooks/useVocabulary';
+import { DifficultyLevel } from '../../types/vocabulary';
+
+const VocabularyList: React.FC = () => {
+    const [filters, setFilters] = useState({
+        page: 1,
+        page_size: 10,
+        search: '',
+        difficulty: undefined as DifficultyLevel | undefined,
+        status: undefined as 'LEARNED' | 'LEARNING' | 'DUE' | undefined,
+    });
+
+    const { data, isLoading, isError, refetch } = useVocabularies(filters);
+    const deleteMutation = useDeleteVocabulary();
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }));
+    };
+
+    const handleDifficultyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value as DifficultyLevel | '';
+        setFilters(prev => ({ ...prev, difficulty: value === '' ? undefined : value, page: 1 }));
+    };
+
+    const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value as any;
+        setFilters(prev => ({ ...prev, status: value === '' ? undefined : value, page: 1 }));
+    };
+
+    const handlePageChange = (newPage: number) => {
+        setFilters(prev => ({ ...prev, page: newPage }));
+    };
+
+    const handleDelete = async (id: number) => {
+        if (window.confirm('Bạn có chắc chắn muốn xóa từ vựng này không?')) {
+            try {
+                await deleteMutation.mutateAsync(id);
+            } catch (error) {
+                alert('Có lỗi xảy ra khi xóa từ vựng');
+            }
+        }
+    };
+
+    const getDifficultyBadge = (level: DifficultyLevel) => {
+        switch (level) {
+            case DifficultyLevel.EASY:
+                return <span className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded-full">Dễ</span>;
+            case DifficultyLevel.MEDIUM:
+                return <span className="px-2 py-1 text-xs font-semibold text-yellow-700 bg-yellow-100 rounded-full">Trung bình</span>;
+            case DifficultyLevel.HARD:
+                return <span className="px-2 py-1 text-xs font-semibold text-red-700 bg-red-100 rounded-full">Khó</span>;
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className="container mx-auto px-4 py-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Danh sách từ vựng</h1>
+                    <p className="text-gray-600 mt-1">Quản lý và theo dõi tiến độ học tập của bạn</p>
+                </div>
+                <Link
+                    to="/vocabulary/new"
+                    className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Thêm từ mới
+                </Link>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm từ hoặc nghĩa..."
+                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                            value={filters.search}
+                            onChange={handleSearchChange}
+                        />
+                    </div>
+                    <div>
+                        <select
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none"
+                            value={filters.difficulty || ''}
+                            onChange={handleDifficultyChange}
+                        >
+                            <option value="">Tất cả độ khó</option>
+                            <option value={DifficultyLevel.EASY}>Dễ</option>
+                            <option value={DifficultyLevel.MEDIUM}>Trung bình</option>
+                            <option value={DifficultyLevel.HARD}>Khó</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none"
+                            value={filters.status || ''}
+                            onChange={handleStatusChange}
+                        >
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="LEARNING">Đang học</option>
+                            <option value="LEARNED">Đã thuộc</option>
+                            <option value="DUE">Cần ôn tập</option>
+                        </select>
+                    </div>
+                    <div className="flex items-center justify-end">
+                        <button
+                            onClick={() => refetch()}
+                            className="p-2 text-gray-500 hover:text-indigo-600 transition-colors"
+                            title="Làm mới"
+                        >
+                            <Filter className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                    <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
+                    <p className="text-gray-500">Đang tải danh sách từ vựng...</p>
+                </div>
+            ) : isError ? (
+                <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-center">
+                    Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.
+                </div>
+            ) : data?.items.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                    <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Không tìm thấy từ vựng nào</h3>
+                    <p className="text-gray-500 mb-6">Bắt đầu hành trình học tập bằng cách thêm những từ vựng đầu tiên!</p>
+                    <Link
+                        to="/vocabulary/new"
+                        className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                        <Plus className="w-5 h-5 mr-2" />
+                        Thêm từ vựng đầu tiên
+                    </Link>
+                </div>
+            ) : (
+                <>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-50 border-b border-gray-100">
+                                    <tr>
+                                        <th className="px-6 py-4 text-sm font-semibold text-gray-600">Từ vựng</th>
+                                        <th className="px-6 py-4 text-sm font-semibold text-gray-600">Định nghĩa</th>
+                                        <th className="px-6 py-4 text-sm font-semibold text-gray-600">Độ khó</th>
+                                        <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {data?.items.map((item) => (
+                                        <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-gray-900 text-lg">{item.word}</div>
+                                                {item.example_sentence && (
+                                                    <div className="text-sm text-gray-500 italic mt-1 line-clamp-1">
+                                                        "{item.example_sentence}"
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600">
+                                                {item.definition}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {getDifficultyBadge(item.difficulty_level)}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end space-x-2">
+                                                    <Link
+                                                        to={`/vocabulary/${item.id}/edit`}
+                                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <Edit className="w-5 h-5" />
+                                                    </Link>
+                                                    <button
+                                                        onClick={() => handleDelete(item.id)}
+                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                        title="Xóa"
+                                                    >
+                                                        <Trash2 className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Pagination */}
+                    {data && data.total_pages > 1 && (
+                        <div className="flex items-center justify-between mt-6">
+                            <p className="text-sm text-gray-600">
+                                Hiển thị <span className="font-medium">{((filters.page - 1) * filters.page_size) + 1}</span> đến <span className="font-medium">{Math.min(filters.page * filters.page_size, data.total)}</span> trong <span className="font-medium">{data.total}</span> từ vựng
+                            </p>
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={() => handlePageChange(filters.page - 1)}
+                                    disabled={filters.page === 1}
+                                    className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                {[...Array(data.total_pages)].map((_, i) => (
+                                    <button
+                                        key={i + 1}
+                                        onClick={() => handlePageChange(i + 1)}
+                                        className={`w-10 h-10 rounded-lg font-medium transition-all ${filters.page === i + 1
+                                                ? 'bg-indigo-600 text-white shadow-md'
+                                                : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={() => handlePageChange(filters.page + 1)}
+                                    disabled={filters.page === data.total_pages}
+                                    className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+};
+
+export default VocabularyList;
