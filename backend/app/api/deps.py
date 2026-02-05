@@ -13,7 +13,7 @@ from app.db.session import get_session
 from app.models.user import User
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.APP_NAME}/api/v1/auth/login") # Adjust path if needed
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login") 
 
 
 # Database session dependency
