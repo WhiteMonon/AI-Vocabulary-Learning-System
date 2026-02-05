@@ -8,15 +8,17 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models.vocabulary import Vocabulary
 from app.models.review_history import ReviewHistory
-from app.models.enums import ReviewQuality, DifficultyLevel
+from app.models.enums import ReviewQuality, DifficultyLevel, PracticeType
 from app.schemas.vocabulary import (
     VocabularyCreate,
     VocabularyUpdate,
     VocabularyReview,
     VocabularyStatsResponse
 )
+from app.schemas.quiz import QuizQuestion, QuizSessionResponse
 from app.core.logging import get_logger
 from app.core.srs_engine import SRSEngine, SRSState, ReviewQuality as SRSReviewQuality
+from app.ai.factory import get_ai_provider
 
 logger = get_logger(__name__)
 
@@ -344,3 +346,62 @@ class VocabularyService:
             learning=learning,
             by_difficulty=by_difficulty
         )
+
+    async def generate_quiz_session(
+        self,
+        user_id: int,
+        limit: int = 10
+    ) -> QuizSessionResponse:
+        """
+        Tạo phiền quiz trắc nghiệm sử dụng AI.
+        Lấy tối đa 'limit' từ vựng đang đến hạn (DUE).
+        
+        Args:
+            user_id: ID của user
+            limit: Số lượng câu hỏi tối đa
+            
+        Returns:
+            QuizSessionResponse chứa danh sách câu hỏi AI
+        """
+        # 1. Lấy danh sách từ vựng DUE
+        query = select(Vocabulary).where(
+            and_(
+                Vocabulary.user_id == user_id,
+                Vocabulary.next_review_date <= datetime.utcnow()
+            )
+        ).order_by(Vocabulary.next_review_date.asc()).limit(limit)
+        
+        due_vocabs = self.session.exec(query).all()
+        
+        if not due_vocabs:
+            logger.info(f"No due vocabularies for user {user_id} to generate quiz")
+            return QuizSessionResponse(questions=[])
+            
+        # 2. Sinh câu hỏi AI cho từng từ vựng
+        ai_provider = get_ai_provider()
+        questions = []
+        
+        for vocab in due_vocabs:
+            try:
+                # Gọi AI provider để sinh câu hỏi trắc nghiệm
+                ai_q = await ai_provider.generate_question(
+                    vocab=vocab,
+                    practice_type=PracticeType.MULTIPLE_CHOICE
+                )
+                
+                # Map sang QuizQuestion schema
+                questions.append(QuizQuestion(
+                    id=vocab.id,
+                    word=vocab.word,
+                    question_text=ai_q.question_text,
+                    options=ai_q.options or {},
+                    correct_answer=ai_q.correct_answer,
+                    explanation=ai_q.explanation or "",
+                    grammar_explanation=ai_q.grammar_explanation
+                ))
+            except Exception as e:
+                logger.error(f"Error generating AI question for vocab {vocab.id}: {str(e)}")
+                continue
+                
+        logger.info(f"Generated {len(questions)} quiz questions for user {user_id}")
+        return QuizSessionResponse(questions=questions)

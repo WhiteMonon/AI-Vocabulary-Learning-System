@@ -16,7 +16,9 @@ from app.schemas.vocabulary import (
     VocabularyListResponse,
     VocabularyStatsResponse
 )
+from app.schemas.quiz import QuizSessionResponse, QuizSubmit
 from app.services.vocabulary_service import VocabularyService
+from app.models.enums import ReviewQuality
 
 router = APIRouter()
 
@@ -84,6 +86,56 @@ def get_vocabulary_stats(
     """
     service = VocabularyService(db)
     return service.get_vocab_stats(user_id=current_user.id)
+
+
+@router.get("/quiz-session", response_model=QuizSessionResponse)
+async def get_quiz_session(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+    limit: int = Query(10, ge=1, le=20)
+):
+    """
+    Tạo một phiên quiz trắc nghiệm (AI-powered) cho người dùng.
+    """
+    service = VocabularyService(db)
+    return await service.generate_quiz_session(user_id=current_user.id, limit=limit)
+
+
+@router.post("/quiz-submit-single", response_model=VocabularyResponse)
+def submit_quiz_answer(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+    submit_in: QuizSubmit
+):
+    """
+    Submit kết quả của một câu hỏi quiz. 
+    Tương tự như review, điều này sẽ cập nhật trạng thái SRS.
+    """
+    service = VocabularyService(db)
+    
+    # Định nghĩa chất lượng review dựa trên đúng/sai trong quiz
+    # Nếu đúng, giả định là GOOD (2). Nếu sai, giả định là AGAIN (0).
+    quality = ReviewQuality.GOOD if submit_in.is_correct else ReviewQuality.AGAIN
+    
+    review_data = VocabularyReview(
+        review_quality=quality,
+        time_spent_seconds=submit_in.time_spent_seconds
+    )
+    
+    vocab = service.update_learning_status(
+        vocab_id=submit_in.vocabulary_id,
+        user_id=current_user.id,
+        review_data=review_data
+    )
+    
+    if not vocab:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Không tìm thấy từ vựng"
+        )
+    return vocab
 
 
 @router.get("/{id}", response_model=VocabularyResponse)
@@ -169,4 +221,6 @@ def review_vocabulary(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="Không tìm thấy từ vựng"
         )
+    return vocab
+
     return vocab

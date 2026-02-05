@@ -7,6 +7,7 @@ import VocabularyList from './pages/vocabulary/VocabularyList';
 import AddVocabulary from './pages/vocabulary/AddVocabulary';
 import EditVocabulary from './pages/vocabulary/EditVocabulary';
 import ReviewSession from './pages/vocabulary/ReviewSession';
+import Quiz from './pages/vocabulary/Quiz';
 import AIPractice from './pages/AIPractice';
 import { useAuth } from './context/AuthContext';
 
@@ -38,6 +39,7 @@ function App() {
           <Route path="vocabulary/new" element={<AddVocabulary />} />
           <Route path="vocabulary/:id/edit" element={<EditVocabulary />} />
           <Route path="vocabulary/review" element={<ReviewSession />} />
+          <Route path="vocabulary/quiz" element={<Quiz />} />
           <Route path="practice/ai" element={<AIPractice />} />
         </Route>
 

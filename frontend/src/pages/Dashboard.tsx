@@ -34,6 +34,14 @@ const Dashboard: React.FC = () => {
                     <p className="text-sm text-gray-500">Học theo thuật toán lặp lại ngắt quãng (SM-2).</p>
                 </Link>
 
+                <Link to="/vocabulary/quiz" className="p-6 border rounded-xl hover:border-orange-500 hover:shadow-md transition-all group bg-white cursor-pointer ring-offset-2 ring-orange-500/20 hover:ring-4">
+                    <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center mb-4 group-hover:bg-orange-100 transition-colors">
+                        <Brain className="text-orange-600" size={24} />
+                    </div>
+                    <h3 className="font-bold text-gray-900 mb-2">Quiz AI (Hot)</h3>
+                    <p className="text-sm text-gray-500">Trắc nghiệm thông minh với lời giải chi tiết từ AI.</p>
+                </Link>
+
                 <Link to="/practice/ai" className="p-6 border rounded-xl hover:border-purple-500 hover:shadow-md transition-all group bg-white cursor-pointer">
                     <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-100 transition-colors">
                         <MessageSquare className="text-purple-600" size={24} />

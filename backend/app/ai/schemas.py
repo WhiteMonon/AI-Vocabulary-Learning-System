@@ -8,6 +8,7 @@ class AIQuestion(BaseModel):
     options: Optional[Dict[str, str]] = Field(None, description="Các lựa chọn (cho trắc nghiệm)")
     correct_answer: str = Field(..., description="Đáp án đúng")
     explanation: Optional[str] = Field(None, description="Giải thích cho đáp án")
+    grammar_explanation: Optional[str] = Field(None, description="Giải thích các cấu trúc ngữ pháp")
     practice_type: PracticeType = Field(..., description="Loại bài tập")
 
 class AIEvaluation(BaseModel):

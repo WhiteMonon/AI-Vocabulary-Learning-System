@@ -4,13 +4,13 @@ Module chứa các prompt templates cho AI.
 """
 
 MULTIPLE_CHOICE_GEN = """
-Tạo một câu hỏi trắc nghiệm (Multiple Choice) cho từ vựng sau:
+Tạo một câu hỏi trắc nghiệm (Multiple Choice) chất lượng cao cho từ vựng sau:
 Từ: {word}
 Định nghĩa: {definition}
 
 Yêu cầu trả về định dạng JSON:
 {{
-    "question_text": "Nội dung câu hỏi yêu cầu người dùng chọn đáp án đúng để hoàn thành câu hoặc giải nghĩa từ.",
+    "question_text": "Nội dung câu hỏi yêu cầu người dùng chọn đáp án đúng để hoàn thành câu hoặc giải nghĩa từ. Ưu tiên sử dụng câu ví dụ thực tế.",
     "options": {{
         "A": "Lựa chọn 1",
         "B": "Lựa chọn 2",
@@ -18,7 +18,8 @@ Yêu cầu trả về định dạng JSON:
         "D": "Lựa chọn 4"
     }},
     "correct_answer": "A/B/C/D",
-    "explanation": "Giải thích tại sao đáp án đó đúng và tại sao các lỗi khác sai.",
+    "explanation": "Giải thích chi tiết tại sao đáp án đó đúng và tại sao các lựa chọn khác lại sai trong ngữ cảnh này. Hãy viết bằng tiếng Việt.",
+    "grammar_explanation": "Giải thích các cấu trúc ngữ pháp quan trọng xuất hiện trong câu hỏi hoặc cách chia từ (nếu có). Viết bằng tiếng Việt.",
     "practice_type": "multiple_choice"
 }}
 """

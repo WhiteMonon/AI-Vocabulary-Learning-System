@@ -60,3 +60,23 @@ export interface VocabularyFilters {
     status?: 'LEARNED' | 'LEARNING' | 'DUE';
     search?: string;
 }
+
+export interface QuizQuestion {
+    id: number;
+    word: string;
+    question_text: string;
+    options: Record<string, string>;
+    correct_answer: string;
+    explanation: string;
+    grammar_explanation?: string;
+}
+
+export interface QuizSessionResponse {
+    questions: QuizQuestion[];
+}
+
+export interface QuizSubmit {
+    vocabulary_id: number;
+    is_correct: boolean;
+    time_spent_seconds: number;
+}
