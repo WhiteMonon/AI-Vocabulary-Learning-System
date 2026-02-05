@@ -16,6 +16,7 @@ from app.schemas.vocabulary import (
     VocabularyStatsResponse
 )
 from app.core.logging import get_logger
+from app.core.srs_engine import SRSEngine, SRSState, ReviewQuality as SRSReviewQuality
 
 logger = get_logger(__name__)
 
@@ -146,6 +147,22 @@ class VocabularyService:
         
         logger.info(f"Deleted vocabulary {vocab_id} for user {user_id}")
         return True
+
+    def get_vocab(self, vocab_id: int, user_id: int) -> Optional[Vocabulary]:
+        """
+        Lấy thông tin chi tiết một vocabulary.
+        
+        Args:
+            vocab_id: ID của vocabulary
+            user_id: ID của user
+            
+        Returns:
+            Vocabulary object hoặc None
+        """
+        vocab = self.session.get(Vocabulary, vocab_id)
+        if not vocab or vocab.user_id != user_id:
+            return None
+        return vocab
     
     def get_vocab_list(
         self,
@@ -153,7 +170,7 @@ class VocabularyService:
         skip: int = 0,
         limit: int = 100,
         difficulty: Optional[DifficultyLevel] = None,
-        due_only: bool = False,
+        status: Optional[str] = None,
         search: Optional[str] = None
     ) -> tuple[List[Vocabulary], int]:
         """
@@ -164,7 +181,7 @@ class VocabularyService:
             skip: Số lượng records để skip (pagination)
             limit: Số lượng records tối đa trả về
             difficulty: Filter theo difficulty level
-            due_only: Chỉ lấy vocabularies cần review hôm nay
+            status: Filter theo trạng thái (LEARNED, LEARNING, DUE)
             search: Tìm kiếm theo word hoặc definition
             
         Returns:
@@ -177,8 +194,13 @@ class VocabularyService:
         if difficulty:
             query = query.where(Vocabulary.difficulty_level == difficulty)
         
-        if due_only:
-            query = query.where(Vocabulary.next_review_date <= datetime.utcnow())
+        if status:
+            if status.upper() == "DUE":
+                query = query.where(Vocabulary.next_review_date <= datetime.utcnow())
+            elif status.upper() == "LEARNED":
+                query = query.where(Vocabulary.repetitions > 0)
+            elif status.upper() == "LEARNING":
+                query = query.where(Vocabulary.repetitions == 0)
         
         if search:
             search_pattern = f"%{search}%"
@@ -233,42 +255,34 @@ class VocabularyService:
         )
         self.session.add(review_history)
         
-        # Apply SM-2 algorithm
-        quality = review_data.review_quality.value
+        # Chuyển đổi trạng thái hiện tại sang SRSState
+        current_srs_state = SRSState(
+            easiness_factor=vocab.easiness_factor,
+            interval=vocab.interval,
+            repetitions=vocab.repetitions,
+            next_review_date=vocab.next_review_date
+        )
         
-        # Update easiness factor
-        # EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
-        ef = vocab.easiness_factor
-        ef = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
-        ef = max(1.3, ef)  # Minimum EF = 1.3
-        vocab.easiness_factor = ef
+        # Gọi SRSEngine để tính toán trạng thái mới
+        quality = SRSReviewQuality(review_data.review_quality.value)
+        new_srs_state = SRSEngine.update_after_review(
+            current_state=current_srs_state,
+            review_quality=quality
+        )
         
-        # Update repetitions và interval
-        if quality < 3:  # AGAIN hoặc HARD
-            # Reset về đầu
-            vocab.repetitions = 0
-            vocab.interval = 0
-            vocab.next_review_date = datetime.utcnow()  # Review lại ngay
-        else:  # GOOD hoặc EASY
-            vocab.repetitions += 1
-            
-            if vocab.repetitions == 1:
-                vocab.interval = 1
-            elif vocab.repetitions == 2:
-                vocab.interval = 6
-            else:
-                vocab.interval = round(vocab.interval * ef)
-            
-            # Calculate next review date
-            vocab.next_review_date = datetime.utcnow() + timedelta(days=vocab.interval)
+        # Cập nhật lại model
+        vocab.easiness_factor = new_srs_state.easiness_factor
+        vocab.interval = new_srs_state.interval
+        vocab.repetitions = new_srs_state.repetitions
+        vocab.next_review_date = new_srs_state.next_review_date
         
         self.session.add(vocab)
         self.session.commit()
         self.session.refresh(vocab)
         
         logger.info(
-            f"Updated learning status for vocab {vocab_id}: "
-            f"quality={quality}, EF={ef:.2f}, interval={vocab.interval}, "
+            f"Updated learning status for vocab {vocab_id} using SRSEngine: "
+            f"quality={quality}, EF={vocab.easiness_factor:.2f}, interval={vocab.interval}, "
             f"next_review={vocab.next_review_date.date()}"
         )
         
