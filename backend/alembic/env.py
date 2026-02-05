@@ -13,6 +13,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.core.config import settings
 from app.db.base import SQLModel
 
+# Import tất cả models để Alembic có thể detect changes
+from app.models import (  # noqa: F401
+    User,
+    Vocabulary,
+    ReviewHistory,
+    AIPracticeLog,
+)
+
 # Alembic Config object
 config = context.config
 
