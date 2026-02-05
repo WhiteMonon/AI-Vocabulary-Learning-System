@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from app.ai.factory import AIFactory
 from app.ai.openai_provider import OpenAIProvider
 from app.models.enums import AIProviderName, PracticeType
@@ -22,7 +22,8 @@ async def test_openai_provider_generate_question():
     
     with patch("app.ai.openai_provider.AsyncOpenAI") as MockClient:
         mock_instance = MockClient.return_value
-        mock_instance.chat.completions.create.return_value = MagicMock(
+        # Sử dụng AsyncMock cho async method
+        mock_instance.chat.completions.create = AsyncMock(return_value=MagicMock(
             choices=[
                 MagicMock(
                     message=MagicMock(
@@ -30,7 +31,7 @@ async def test_openai_provider_generate_question():
                     )
                 )
             ]
-        )
+        ))
         
         provider = OpenAIProvider(api_key="fake")
         question = await provider.generate_question(mock_vocab, PracticeType.MULTIPLE_CHOICE)

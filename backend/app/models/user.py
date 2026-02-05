@@ -23,11 +23,11 @@ class User(BaseModel, table=True):
     
     # Authentication fields
     email: str = Field(
-        sa_column=Column(String, unique=True, nullable=False, index=True),
+        sa_column=Column(String, unique=True, nullable=False),
         description="Email của user (unique)"
     )
     username: str = Field(
-        sa_column=Column(String, unique=True, nullable=False, index=True),
+        sa_column=Column(String, unique=True, nullable=False),
         description="Username của user (unique)"
     )
     hashed_password: str = Field(

@@ -25,13 +25,11 @@ class ReviewHistory(BaseModel, table=True):
     user_id: int = Field(
         foreign_key="users.id",
         nullable=False,
-        index=True,
         description="ID của user thực hiện review"
     )
     vocabulary_id: int = Field(
         foreign_key="vocabularies.id",
         nullable=False,
-        index=True,
         description="ID của vocabulary được review"
     )
     
@@ -48,7 +46,7 @@ class ReviewHistory(BaseModel, table=True):
     
     # Timestamp
     reviewed_at: datetime = Field(
-        sa_column=Column(DateTime, nullable=False, index=True),
+        sa_column=Column(DateTime, nullable=False),
         default_factory=datetime.utcnow,
         description="Thời điểm thực hiện review"
     )

@@ -25,21 +25,18 @@ class AIPracticeLog(BaseModel, table=True):
     user_id: int = Field(
         foreign_key="users.id",
         nullable=False,
-        index=True,
         description="ID của user thực hiện practice"
     )
     vocabulary_id: Optional[int] = Field(
         default=None,
         foreign_key="vocabularies.id",
         nullable=True,
-        index=True,
         description="ID của vocabulary được practice (nullable cho general practice)"
     )
     
     # Practice data
     practice_type: PracticeType = Field(
         nullable=False,
-        index=True,
         description="Loại bài tập AI"
     )
     prompt: str = Field(
@@ -74,7 +71,7 @@ class AIPracticeLog(BaseModel, table=True):
         description="Thời gian dành cho practice (giây)"
     )
     practiced_at: datetime = Field(
-        sa_column=Column(DateTime, nullable=False, index=True),
+        sa_column=Column(DateTime, nullable=False),
         default_factory=datetime.utcnow,
         description="Thời điểm thực hiện practice"
     )

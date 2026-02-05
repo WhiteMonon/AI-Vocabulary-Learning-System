@@ -259,7 +259,7 @@ class TestUpdateAfterReview:
     def test_review_easy_increases_interval(self):
         """Test EASY quality increases interval more than GOOD."""
         state = SRSState(
-            easiness_factor=2.5,
+            easiness_factor=2.0,  # Dùng 2.0 để tránh bị clamp ở 2.5 khi tăng
             interval=6,
             repetitions=2,
             next_review_date=datetime(2026, 2, 11, 12, 0, 0)
@@ -280,11 +280,10 @@ class TestUpdateAfterReview:
         
         # EASY should have longer interval than GOOD
         assert new_state_easy.interval > new_state_good.interval
-        # Cả EASY và GOOD đều làm giảm EF theo SM-2
-        # Nhưng EASY giảm ít hơn GOOD (EASY: -0.14, GOOD: -0.32)
+        # Theo logic mới: EASY (+0.1), GOOD (giữ nguyên)
         assert new_state_easy.easiness_factor > new_state_good.easiness_factor
-        assert new_state_easy.easiness_factor < state.easiness_factor
-        assert new_state_good.easiness_factor < state.easiness_factor
+        assert new_state_easy.easiness_factor > state.easiness_factor
+        assert new_state_good.easiness_factor == state.easiness_factor
     
     def test_easiness_factor_bounds(self):
         """Test EF không vượt quá bounds."""
@@ -544,3 +543,37 @@ class TestIntegration:
         )
         assert state.repetitions == 1
         assert state.interval == 1
+
+
+class TestSRSEdgeCases:
+    """Các trường hợp biên và đặc biệt của SRS Engine."""
+
+    def test_extreme_ef_recovery(self):
+        """Test khả năng hồi phục EF sau khi bị giảm xuống minimum."""
+        # Tình huống: EF cực thấp (1.3)
+        state = SRSState(easiness_factor=1.3, interval=1, repetitions=1)
+        
+        # Learner bắt đầu làm tốt (EASY) liên tục
+        for _ in range(5):
+            state = SRSEngine.update_after_review(state, ReviewQuality.EASY)
+        
+        # EF nên tăng trở lại (nhưng không vượt quá 2.5)
+        assert state.easiness_factor > 1.3
+        assert state.easiness_factor <= 2.5
+
+    def test_very_large_interval(self):
+        """Test xử lý với interval cực lớn (phòng trường hợp overflow hoặc lỗi ngày tháng)."""
+        state = SRSState(easiness_factor=2.5, interval=365*10, repetitions=50) # 10 năm
+        
+        new_state = SRSEngine.update_after_review(state, ReviewQuality.GOOD)
+        
+        assert new_state.interval > state.interval
+        assert (new_state.next_review_date - datetime.utcnow()).days > 3650
+
+    def test_minimum_ef_clamping(self):
+        """Xác minh EF không bao giờ thấp hơn 1.3 kể cả khi liên tục FAIL."""
+        state = create_initial_state()
+        for _ in range(10):
+            state = SRSEngine.update_after_review(state, ReviewQuality.AGAIN)
+        
+        assert state.easiness_factor == 1.3

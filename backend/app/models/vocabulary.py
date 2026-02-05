@@ -26,7 +26,6 @@ class Vocabulary(BaseModel, table=True):
     user_id: int = Field(
         foreign_key="users.id",
         nullable=False,
-        index=True,
         description="ID của user sở hữu vocabulary này"
     )
     
@@ -68,7 +67,7 @@ class Vocabulary(BaseModel, table=True):
         description="Số lần review thành công liên tiếp"
     )
     next_review_date: datetime = Field(
-        sa_column=Column(DateTime, nullable=False, index=True),
+        sa_column=Column(DateTime, nullable=False),
         default_factory=datetime.utcnow,
         description="Ngày review tiếp theo"
     )

@@ -268,8 +268,20 @@ class SRSEngine:
         """
         q = quality.value
         
-        # SM-2 formula
-        new_ef = current_ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+        # Logic simplified cho thang điểm 0-3:
+        # AGAIN (0): EF -= 0.2
+        # HARD (1): EF -= 0.15
+        # GOOD (2): EF không đổi (0)
+        # EASY (3): EF += 0.1
+        
+        if q == 0:
+            new_ef = current_ef - 0.2
+        elif q == 1:
+            new_ef = current_ef - 0.15
+        elif q == 2:
+            new_ef = current_ef
+        else:  # q == 3 (EASY)
+            new_ef = current_ef + 0.1
         
         # Clamp to valid range
         new_ef = max(SRSEngine.MIN_EASINESS_FACTOR, new_ef)
