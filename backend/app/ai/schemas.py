@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, Field
 from app.models.enums import PracticeType
 
@@ -15,3 +15,14 @@ class AIEvaluation(BaseModel):
     is_correct: bool = Field(..., description="Câu trả lời có đúng hay không")
     feedback: str = Field(..., description="Phản hồi từ AI về câu trả lời")
     score: float = Field(..., description="Điểm số (0.0 đến 1.0)")
+
+class AIChatMessage(BaseModel):
+    """Schema cho một tin nhắn trong hội thoại AI."""
+    role: str = Field(..., description="Vai trò của người gửi (user, assistant, system)")
+    content: str = Field(..., description="Nội dung tin nhắn")
+
+class AIChatRequest(BaseModel):
+    """Schema cho yêu cầu chat với AI."""
+    messages: List[AIChatMessage] = Field(..., description="Danh sách lịch sử tin nhắn")
+    vocab_id: Optional[str] = Field(None, description="ID của từ vựng đang luyện tập (nếu có)")
+    practice_type: Optional[PracticeType] = Field(None, description="Loại bài tập liên quan")

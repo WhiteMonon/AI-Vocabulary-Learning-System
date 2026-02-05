@@ -30,3 +30,7 @@ class AIFactory:
             raise ValueError(f"AI Provider '{name}' không được hỗ trợ.")
             
         return provider_class()
+
+def get_ai_provider(provider_name: str = None) -> AIProvider:
+    """Helper function để lấy AI provider."""
+    return AIFactory.get_provider(provider_name)

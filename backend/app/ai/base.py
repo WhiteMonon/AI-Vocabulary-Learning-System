@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
-from app.ai.schemas import AIQuestion, AIEvaluation
+from typing import Any, Dict, List, AsyncGenerator
+from app.ai.schemas import AIQuestion, AIEvaluation, AIChatMessage
 from app.models.vocabulary import Vocabulary
 from app.models.enums import PracticeType
 
@@ -26,5 +26,15 @@ class AIProvider(ABC):
     ) -> AIEvaluation:
         """
         Đánh giá câu trả lời của người dùng.
+        """
+        pass
+
+    @abstractmethod
+    async def chat_stream(
+        self, 
+        messages: List[AIChatMessage]
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream phản hồi từ AI cho hội thoại.
         """
         pass

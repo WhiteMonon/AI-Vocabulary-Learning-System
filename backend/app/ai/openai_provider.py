@@ -1,7 +1,8 @@
 import json
+from typing import List, AsyncGenerator
 from openai import AsyncOpenAI
 from app.ai.base import AIProvider
-from app.ai.schemas import AIQuestion, AIEvaluation
+from app.ai.schemas import AIQuestion, AIEvaluation, AIChatMessage
 from app.ai import prompts
 from app.models.vocabulary import Vocabulary
 from app.models.enums import PracticeType
@@ -66,3 +67,33 @@ class OpenAIProvider(AIProvider):
         except Exception as e:
             logger.error(f"OpenAI evaluate_answer error: {str(e)}")
             raise
+
+    async def chat_stream(self, messages: List[AIChatMessage]) -> AsyncGenerator[str, None]:
+        """
+        Stream phản hồi từ OpenAI.
+        """
+        api_messages = [
+            {"role": m.role, "content": m.content} 
+            for m in messages
+        ]
+        
+        # Thêm system prompt nếu chưa có
+        if not any(m["role"] == "system" for m in api_messages):
+            api_messages.insert(0, {
+                "role": "system", 
+                "content": "You are an expert language teacher. Help the user practice their vocabulary through natural conversation. Keep responses engaging and slightly challenging."
+            })
+
+        try:
+            stream = await self.client.chat.completions.create(
+                model=self.model,
+                messages=api_messages,
+                stream=True
+            )
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content or ""
+                if content:
+                    yield content
+        except Exception as e:
+            logger.error(f"OpenAI chat_stream error: {str(e)}")
+            yield f"Error: {str(e)}"
