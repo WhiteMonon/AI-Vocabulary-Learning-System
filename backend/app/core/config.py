@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     HF_API_KEY: str = ""
+    DEFAULT_AI_PROVIDER: str = "openai"
     
     # Redis (optional)
     REDIS_HOST: str = "redis"

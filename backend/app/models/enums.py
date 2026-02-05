@@ -37,3 +37,11 @@ class PracticeType(str, Enum):
     FILL_BLANK = "fill_blank"
     MULTIPLE_CHOICE = "multiple_choice"
     SENTENCE_GENERATION = "sentence_generation"
+
+
+class AIProviderName(str, Enum):
+    """Tên các AI providers được hỗ trợ."""
+    OPENAI = "openai"
+    GROQ = "groq"
+    GEMINI = "gemini"
+    LOCAL_HF = "local"
