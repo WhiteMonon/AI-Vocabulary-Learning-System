@@ -2,6 +2,7 @@ import json
 from openai import AsyncOpenAI
 from app.ai.base import AIProvider
 from app.ai.schemas import AIQuestion, AIEvaluation
+from app.ai import prompts
 from app.models.vocabulary import Vocabulary
 from app.models.enums import PracticeType
 from app.core.config import settings
@@ -19,20 +20,19 @@ class OpenAIProvider(AIProvider):
         vocab: Vocabulary, 
         practice_type: PracticeType = PracticeType.MULTIPLE_CHOICE
     ) -> AIQuestion:
-        prompt = f"""
-        Tạo một câu hỏi {practice_type.value} cho từ vựng sau:
-        Từ: {vocab.word}
-        Định nghĩa: {vocab.definition}
-        
-        Yêu cầu trả về định dạng JSON:
-        {{
-            "question_text": "nội dung câu hỏi",
-            "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}} (nếu là trắc nghiệm),
-            "correct_answer": "đáp án đúng",
-            "explanation": "giải thích tại sao đáp án đó đúng",
-            "practice_type": "{practice_type.value}"
-        }}
-        """
+        if practice_type == PracticeType.MULTIPLE_CHOICE:
+            prompt = prompts.MULTIPLE_CHOICE_GEN.format(
+                word=vocab.word, 
+                definition=vocab.definition
+            )
+        elif practice_type == PracticeType.FILL_BLANK:
+            prompt = prompts.FILL_BLANK_GEN.format(
+                word=vocab.word, 
+                definition=vocab.definition
+            )
+        else:
+            # Fallback hoặc các loại khác sau này
+            prompt = f"Tạo câu hỏi {practice_type.value} cho từ {vocab.word}"
         
         try:
             response = await self.client.chat.completions.create(
@@ -48,18 +48,11 @@ class OpenAIProvider(AIProvider):
             raise
 
     async def evaluate_answer(self, question: AIQuestion, answer: str) -> AIEvaluation:
-        prompt = f"""
-        Câu hỏi: {question.question_text}
-        Đáp án đúng: {question.correct_answer}
-        Câu trả lời của người dùng: {answer}
-        
-        Hãy đánh giá câu trả lời này. Trả về định dạng JSON:
-        {{
-            "is_correct": true/false,
-            "feedback": "nhận xét ngắn gọn",
-            "score": 0.0 đến 1.0
-        }}
-        """
+        prompt = prompts.GRAMMAR_EVAL.format(
+            question=question.question_text,
+            expected=question.correct_answer,
+            answer=answer
+        )
         
         try:
             response = await self.client.chat.completions.create(
