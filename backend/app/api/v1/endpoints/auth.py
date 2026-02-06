@@ -10,6 +10,9 @@ from app.core.config import settings
 from app.models.user import User
 from app.schemas.auth import Token, UserOut, UserRegister, UserLogin
 
+from app.core.logging import get_logger
+logger = get_logger(__name__)
+
 router = APIRouter()
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -57,16 +60,16 @@ def login(
     """
     Đăng nhập bằng OAuth2 compatible token login.
     """
-    print(f"DEBUG: Login attempt for username: {form_data.username}")
-    # Tìm user theo email hoặc username (form_data.username có thể là email)
+    logger.warning(f"Login attempt for username: {form_data.username}")
     user = db.exec(select(User).where(
         (User.email == form_data.username) | (User.username == form_data.username)
     )).first()
     
     if not user:
-        print(f"DEBUG: User not found: {form_data.username}")
-    elif not security.verify_password(form_data.password, user.hashed_password):
-        print(f"DEBUG: Password mismatch for user: {user.email}")
+        logger.warning(f"User not found for: {form_data.username}")
+    else:
+        is_pw_valid = security.verify_password(form_data.password, user.hashed_password)
+        logger.warning(f"User found: {user.email}, password valid: {is_pw_valid}, encrypted stored: {user.hashed_password[:10]}...")
     
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(

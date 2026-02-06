@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.toast
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Node
+**/node_modules/
+**/dist/
+**/build/
+.npm
+.eslintcache
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+logs/
+postgres_data/
+redis_data/

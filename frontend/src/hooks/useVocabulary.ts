@@ -8,10 +8,8 @@ import {
 } from '../api/vocabulary';
 import {
     VocabularyFilters,
-    VocabularyCreate,
     VocabularyUpdate,
     VocabularyListResponse,
-    Vocabulary
 } from '../types/vocabulary';
 
 export const useVocabularies = (filters: VocabularyFilters) => {

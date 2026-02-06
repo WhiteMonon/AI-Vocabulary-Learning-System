@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.warning(f"Effective CORS origins: {settings.CORS_ORIGINS}")
     logger.info("Initializing database...")
     try:
         init_db()
@@ -48,10 +49,11 @@ app = FastAPI(
 )
 
 # CORS middleware
+origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")] if settings.CORS_ORIGINS else []
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=False,  # Set to False to allow wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -86,6 +88,12 @@ async def root():
         "version": settings.APP_VERSION,
         "docs": "/docs"
     }
+
+
+@app.get("/health", tags=["Health"])
+async def health():
+    """Health check endpoint."""
+    return {"status": "healthy"}
 
 
 if __name__ == "__main__":

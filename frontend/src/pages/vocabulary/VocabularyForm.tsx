@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, X, Loader2, AlertCircle } from 'lucide-react';
-import { VocabularyCreate, VocabularyUpdate, DifficultyLevel, Vocabulary } from '../../types/vocabulary';
+import { VocabularyCreate, DifficultyLevel, Vocabulary } from '../../types/vocabulary';
 
 interface VocabularyFormProps {
     initialData?: Vocabulary;
@@ -86,8 +86,8 @@ const VocabularyForm: React.FC<VocabularyFormProps> = ({
                             name="word"
                             placeholder="Ví dụ: Ephemeral"
                             className={`w-full px-4 py-3 border rounded-xl outline-none transition-all focus:ring-2 ${errors.word
-                                    ? 'border-red-300 focus:ring-red-100'
-                                    : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-500'
+                                ? 'border-red-300 focus:ring-red-100'
+                                : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-500'
                                 }`}
                             value={formData.word}
                             onChange={handleChange}
@@ -109,8 +109,8 @@ const VocabularyForm: React.FC<VocabularyFormProps> = ({
                             rows={3}
                             placeholder="Nhập định nghĩa của từ..."
                             className={`w-full px-4 py-3 border rounded-xl outline-none transition-all focus:ring-2 ${errors.definition
-                                    ? 'border-red-300 focus:ring-red-100'
-                                    : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-500'
+                                ? 'border-red-300 focus:ring-red-100'
+                                : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-500'
                                 }`}
                             value={formData.definition}
                             onChange={handleChange}

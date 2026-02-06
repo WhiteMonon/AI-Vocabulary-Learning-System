@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: vocab_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vocab_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vocab_password}
+      POSTGRES_DB: ${POSTGRES_DB:-vocab_learning_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vocab_user} -d ${POSTGRES_DB:-vocab_learning_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vocab_network
+
+  # Redis (Caching & Task Queue)
+  redis:
+    image: redis:7-alpine
+    container_name: vocab_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vocab_network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vocab_backend
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - vocab_network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vocab_frontend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - vocab_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  vocab_network:
+    driver: bridge
