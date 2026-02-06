@@ -56,18 +56,13 @@ if settings.DEBUG:
         if o not in origins:
             origins.append(o)
 
-# If allow_credentials is True, origins cannot be ["*"]
-if "*" in origins and len(origins) > 1:
-    origins.remove("*")
-elif "*" in origins:
-    # If it's only ["*"], we need to be more specific or set allow_credentials to False
-    # For local dev, let's just use the current origin if it's wildcard
-    pass # CORSMiddleware handles "*" with allow_credentials=False better
+# Đảm bảo CORS hoạt động tốt cả với wildcard và credentials
+allow_all = "*" in origins or not origins
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if "*" not in origins else ["*"],
-    allow_credentials=True if "*" not in origins else False,
+    allow_origins=["*"] if allow_all else origins,
+    allow_credentials=not allow_all, # credentials cannot be used with "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -78,15 +73,25 @@ app.add_middleware(
 async def global_exception_handler(request: Request, exc: Exception):
     """
     Global exception handler để catch tất cả unhandled exceptions.
+    Đảm bảo trả về CORS headers để tránh lỗi 'Blocked by CORS' khi có lỗi 500.
     """
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(
+    
+    response = JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "detail": "Internal server error",
             "message": str(exc) if settings.DEBUG else "An error occurred"
         }
     )
+    
+    # Thủ công thêm CORS headers cho exception response
+    response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
 
 
 # Include API router

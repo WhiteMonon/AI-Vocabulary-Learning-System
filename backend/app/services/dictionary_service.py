@@ -2,7 +2,6 @@
 DictionaryService - Service để dịch từ vựng sử dụng Google Translate.
 """
 from typing import Optional, Tuple
-from googletrans import Translator
 from sqlmodel import Session
 
 from app.models.enums import MeaningSource
@@ -41,12 +40,25 @@ class DictionaryService:
             return None
         
         try:
-            translator = Translator()
-            result = await translator.translate(text, src=source_lang, dest=target_lang)
+            # Dùng deep_translator ổn định hơn googletrans
+            from deep_translator import GoogleTranslator
             
-            if result and hasattr(result, 'text') and result.text:
-                logger.info(f"Translated: '{text}' -> '{result.text}'")
-                return result.text
+            # GoogleTranslator là synchronous, chạy trong executor để không block event loop
+            import asyncio
+            import functools
+            
+            loop = asyncio.get_event_loop()
+            translator = GoogleTranslator(source=source_lang, target=target_lang)
+            
+            # Dùng run_in_executor để chạy sync function trong async context
+            result = await loop.run_in_executor(
+                None, 
+                functools.partial(translator.translate, text)
+            )
+            
+            if result:
+                logger.info(f"Translated: '{text}' -> '{result}'")
+                return result
             else:
                 logger.warning(f"Translation failed for: '{text}'")
                 return None

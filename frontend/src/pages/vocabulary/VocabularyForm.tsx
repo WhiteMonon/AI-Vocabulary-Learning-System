@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, X, Loader2, AlertCircle, Plus, Trash2 } from 'lucide-react';
-import { VocabularyCreate, WordType, Vocabulary } from '../../types/vocabulary';
+import { VocabularyCreate, Vocabulary } from '../../types/vocabulary';
 
 interface VocabularyFormProps {
     initialData?: Vocabulary;
@@ -19,7 +19,6 @@ const VocabularyForm: React.FC<VocabularyFormProps> = ({
     const navigate = useNavigate();
     const [formData, setFormData] = useState<VocabularyCreate>({
         word: '',
-        word_type: WordType.NOUN,
         meanings: [{ definition: '', example_sentence: '' }]
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -28,7 +27,6 @@ const VocabularyForm: React.FC<VocabularyFormProps> = ({
         if (initialData) {
             setFormData({
                 word: initialData.word,
-                word_type: initialData.word_type,
                 meanings: initialData.meanings.map(m => ({
                     definition: m.definition,
                     example_sentence: m.example_sentence || ''
@@ -120,44 +118,27 @@ const VocabularyForm: React.FC<VocabularyFormProps> = ({
 
                 <form onSubmit={handleSubmit} className="p-8 space-y-8">
                     {/* Basic Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Từ vựng <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="word"
-                                placeholder="Ví dụ: Ephemeral"
-                                className={`w-full px-4 py-3 border rounded-xl outline-none transition-all focus:ring-2 ${errors.word
-                                    ? 'border-red-300 focus:ring-red-100'
-                                    : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-500'
-                                    }`}
-                                value={formData.word}
-                                onChange={handleWordChange}
-                            />
-                            {errors.word && (
-                                <p className="mt-1 text-sm text-red-600 flex items-center">
-                                    <AlertCircle className="w-4 h-4 mr-1" />
-                                    {errors.word}
-                                </p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Loại từ
-                            </label>
-                            <select
-                                name="word_type"
-                                className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none transition-all focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 bg-white"
-                                value={formData.word_type}
-                                onChange={handleWordChange}
-                            >
-                                {Object.values(WordType).map((type) => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
-                        </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Từ vựng <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="word"
+                            placeholder="Ví dụ: Ephemeral"
+                            className={`w-full px-4 py-3 border rounded-xl outline-none transition-all focus:ring-2 ${errors.word
+                                ? 'border-red-300 focus:ring-red-100'
+                                : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-500'
+                                }`}
+                            value={formData.word}
+                            onChange={handleWordChange}
+                        />
+                        {errors.word && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center">
+                                <AlertCircle className="w-4 h-4 mr-1" />
+                                {errors.word}
+                            </p>
+                        )}
                     </div>
 
                     {/* Meanings */}

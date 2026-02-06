@@ -48,21 +48,7 @@ class AIProviderName(str, Enum):
 
 
 class WordType(str, Enum):
-    """Phân loại từ vựng."""
-    # Specific types (matching frontend)
-    NOUN = "noun"
-    VERB = "verb"
-    ADJECTIVE = "adjective"
-    ADVERB = "adverb"
-    PREPOSITION = "preposition"
-    CONJUNCTION = "conjunction"
-    PRONOUN = "pronoun"
-    INTERJECTION = "interjection"
-    PHRASE = "phrase"
-    IDIOM = "idiom"
-    OTHER = "other"
-    
-    # Legacy types (keep for backward compatibility)
+    """Phân loại từ vựng (đơn giản hóa)."""
     FUNCTION_WORD = "function_word"
     CONTENT_WORD = "content_word"
 

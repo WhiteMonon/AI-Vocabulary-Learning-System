@@ -13,14 +13,12 @@ import {
     Upload // Add Upload icon
 } from 'lucide-react';
 import { useVocabularies, useDeleteVocabulary } from '../../hooks/useVocabulary';
-import { WordType } from '../../types/vocabulary';
 
 const VocabularyList: React.FC = () => {
     const [filters, setFilters] = useState({
         page: 1,
         page_size: 10,
         search: '',
-        word_type: undefined as WordType | undefined,
         status: undefined as 'LEARNED' | 'LEARNING' | 'DUE' | undefined,
     });
 
@@ -31,10 +29,6 @@ const VocabularyList: React.FC = () => {
         setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }));
     };
 
-    const handleWordTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const value = e.target.value as WordType | '';
-        setFilters(prev => ({ ...prev, word_type: value === '' ? undefined : value, page: 1 }));
-    };
 
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const value = e.target.value as any;
@@ -96,18 +90,6 @@ const VocabularyList: React.FC = () => {
                     <div>
                         <select
                             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none"
-                            value={filters.word_type || ''}
-                            onChange={handleWordTypeChange}
-                        >
-                            <option value="">Tất cả loại từ</option>
-                            {Object.values(WordType).map((type) => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <select
-                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none"
                             value={filters.status || ''}
                             onChange={handleStatusChange}
                         >
@@ -160,7 +142,6 @@ const VocabularyList: React.FC = () => {
                                 <thead className="bg-gray-50 border-b border-gray-100">
                                     <tr>
                                         <th className="px-6 py-4 text-sm font-semibold text-gray-600">Từ vựng</th>
-                                        <th className="px-6 py-4 text-sm font-semibold text-gray-600">Loại từ</th>
                                         <th className="px-6 py-4 text-sm font-semibold text-gray-600">Định nghĩa</th>
                                         <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">Thao tác</th>
                                     </tr>
@@ -176,11 +157,6 @@ const VocabularyList: React.FC = () => {
                                                         "{item.meanings[0].example_sentence}"
                                                     </div>
                                                 )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="px-2 py-1 text-xs font-semibold text-indigo-700 bg-indigo-100 rounded-full">
-                                                    {item.word_type}
-                                                </span>
                                             </td>
                                             <td className="px-6 py-4 text-gray-600">
                                                 {/* Display first definition */}

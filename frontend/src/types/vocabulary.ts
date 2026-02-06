@@ -1,15 +1,6 @@
 export enum WordType {
-    NOUN = 'noun',
-    VERB = 'verb',
-    ADJECTIVE = 'adjective',
-    ADVERB = 'adverb',
-    PREPOSITION = 'preposition',
-    CONJUNCTION = 'conjunction',
-    PRONOUN = 'pronoun',
-    INTERJECTION = 'interjection',
-    PHRASE = 'phrase',
-    IDIOM = 'idiom',
-    OTHER = 'other'
+    FUNCTION_WORD = 'function_word',
+    CONTENT_WORD = 'content_word'
 }
 
 export enum ApplicationType {

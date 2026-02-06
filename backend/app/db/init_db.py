@@ -11,11 +11,10 @@ logger = get_logger(__name__)
 def init_db() -> None:
     """
     Initialize database.
-    Tạo tất cả tables từ SQLModel metadata.
+    Ghi chú: Tables nên được quản lý bởi Alembic migration thay vì create_all.
     """
-    logger.info("Creating database tables...")
-    SQLModel.metadata.create_all(engine)
-    logger.info("Database tables created successfully")
+    logger.info("Skipping database creation via SQLModel (managed by Alembic)")
+    # SQLModel.metadata.create_all(engine)
 
 
 def drop_db() -> None:
