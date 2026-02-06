@@ -1,11 +1,12 @@
 """Tests cho Review và SRS Integration."""
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.models.vocabulary import Vocabulary
+from app.models.review_history import ReviewHistory
 from app.models.enums import ReviewQuality
 
 
@@ -14,7 +15,7 @@ def test_review_vocabulary_good(auth_client: TestClient, session: Session):
     # Tạo từ vựng ban đầu
     create_res = auth_client.post("/api/v1/vocabulary/", json={
         "word": "SRS",
-        "definition": "Spaced Repetition System"
+        "meanings": [{"definition": "Spaced Repetition System"}]
     })
     vocab_id = create_res.json()["id"]
     
@@ -42,7 +43,7 @@ def test_review_vocabulary_again_resets(auth_client: TestClient):
     # Tạo từ vựng đã có tiến trình
     create_res = auth_client.post("/api/v1/vocabulary/", json={
         "word": "Reset",
-        "definition": "To start over"
+        "meanings": [{"definition": "To start over"}]
     })
     vocab_id = create_res.json()["id"]
     
@@ -62,7 +63,7 @@ def test_submit_quiz_answer_single(auth_client: TestClient):
     """Test submit kết quả quiz đơn lẻ."""
     create_res = auth_client.post("/api/v1/vocabulary/", json={
         "word": "Quiz",
-        "definition": "A short test"
+        "meanings": [{"definition": "A short test"}]
     })
     vocab_id = create_res.json()["id"]
     
@@ -85,14 +86,13 @@ def test_submit_quiz_answer_single(auth_client: TestClient):
 
 def test_review_history_created(auth_client: TestClient, session: Session, normal_user):
     """Test review history được lưu vào database."""
-    create_res = auth_client.post("/api/v1/vocabulary/", json={"word": "History", "definition": "Past events"})
+    create_res = auth_client.post("/api/v1/vocabulary/", json={
+        "word": "History", 
+        "meanings": [{"definition": "Past events"}]
+    })
     vocab_id = create_res.json()["id"]
     
     auth_client.post(f"/api/v1/vocabulary/{vocab_id}/review", json={"review_quality": ReviewQuality.EASY})
-    
-    # Kiểm tra table review_history (cần import model)
-    from app.models.review_history import ReviewHistory
-    from sqlmodel import select
     
     history = session.exec(select(ReviewHistory).where(ReviewHistory.vocabulary_id == vocab_id)).first()
     assert history is not None

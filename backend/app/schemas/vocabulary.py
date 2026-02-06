@@ -1,32 +1,20 @@
 """
 Vocabulary schemas cho API request/response.
+Updated để hỗ trợ multiple meanings và import/export.
 """
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.enums import DifficultyLevel, ReviewQuality
+from app.models.enums import WordType, MeaningSource, ReviewQuality
 
 
-# ============= Request Schemas =============
+# ============= Meaning Schemas =============
 
-class VocabularyCreate(BaseModel):
-    """Schema để tạo vocabulary mới."""
-    word: str = Field(..., min_length=1, max_length=200, description="Từ vựng cần học")
+class MeaningCreate(BaseModel):
+    """Schema để tạo meaning mới."""
     definition: str = Field(..., min_length=1, description="Định nghĩa của từ")
     example_sentence: Optional[str] = Field(None, description="Câu ví dụ sử dụng từ")
-    difficulty_level: DifficultyLevel = Field(
-        default=DifficultyLevel.MEDIUM,
-        description="Mức độ khó của vocabulary"
-    )
-    
-    @field_validator('word')
-    @classmethod
-    def word_must_not_be_empty(cls, v: str) -> str:
-        """Validate word không được chỉ chứa khoảng trắng."""
-        if not v.strip():
-            raise ValueError('Word không được để trống')
-        return v.strip()
     
     @field_validator('definition')
     @classmethod
@@ -37,12 +25,41 @@ class VocabularyCreate(BaseModel):
         return v.strip()
 
 
+class MeaningResponse(BaseModel):
+    """Schema cho meaning response."""
+    id: int
+    definition: str
+    example_sentence: Optional[str]
+    meaning_source: MeaningSource
+    is_auto_generated: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# ============= Vocabulary Request Schemas =============
+
+class VocabularyCreate(BaseModel):
+    """Schema để tạo vocabulary mới."""
+    word: str = Field(..., min_length=1, max_length=200, description="Từ vựng cần học")
+    meanings: List[MeaningCreate] = Field(..., min_length=1, description="Danh sách meanings")
+    word_type: Optional[WordType] = Field(None, description="Override word type (None = auto classify)")
+    
+    @field_validator('word')
+    @classmethod
+    def word_must_not_be_empty(cls, v: str) -> str:
+        """Validate word không được chỉ chứa khoảng trắng."""
+        if not v.strip():
+            raise ValueError('Word không được để trống')
+        return v.strip()
+
+
 class VocabularyUpdate(BaseModel):
     """Schema để update vocabulary."""
     word: Optional[str] = Field(None, min_length=1, max_length=200, description="Từ vựng cần học")
-    definition: Optional[str] = Field(None, min_length=1, description="Định nghĩa của từ")
-    example_sentence: Optional[str] = Field(None, description="Câu ví dụ sử dụng từ")
-    difficulty_level: Optional[DifficultyLevel] = Field(None, description="Mức độ khó của vocabulary")
+    word_type: Optional[WordType] = Field(None, description="Override word type")
     
     @field_validator('word')
     @classmethod
@@ -50,14 +67,6 @@ class VocabularyUpdate(BaseModel):
         """Validate word không được chỉ chứa khoảng trắng."""
         if v is not None and not v.strip():
             raise ValueError('Word không được để trống')
-        return v.strip() if v else v
-    
-    @field_validator('definition')
-    @classmethod
-    def definition_must_not_be_empty(cls, v: Optional[str]) -> Optional[str]:
-        """Validate definition không được chỉ chứa khoảng trắng."""
-        if v is not None and not v.strip():
-            raise ValueError('Definition không được để trống')
         return v.strip() if v else v
 
 
@@ -71,6 +80,30 @@ class VocabularyReview(BaseModel):
     )
 
 
+# ============= Import/Export Schemas =============
+
+class VocabularyImportRequest(BaseModel):
+    """Schema cho import request."""
+    content: str = Field(..., description="Nội dung file TXT (word|definition|example)")
+    auto_fetch_meaning: bool = Field(True, description="Tự động fetch meaning từ API nếu không có")
+
+
+class ImportResultResponse(BaseModel):
+    """Schema cho kết quả import."""
+    total_processed: int
+    new_words: int
+    merged_meanings: int
+    auto_generated_count: int
+    failed_auto_meaning: List[str]
+    warnings: List[str]
+    errors: List[str]
+
+
+class ExportFormat(BaseModel):
+    """Schema cho export format."""
+    format: Literal["json", "txt", "csv"] = Field("json", description="Format export")
+
+
 # ============= Response Schemas =============
 
 class VocabularyResponse(BaseModel):
@@ -78,9 +111,9 @@ class VocabularyResponse(BaseModel):
     id: int
     user_id: int
     word: str
-    definition: str
-    example_sentence: Optional[str]
-    difficulty_level: DifficultyLevel
+    word_type: WordType
+    is_word_type_manual: bool
+    meanings: List[MeaningResponse]
     
     # SRS fields
     easiness_factor: float
@@ -98,7 +131,7 @@ class VocabularyResponse(BaseModel):
 
 class VocabularyListResponse(BaseModel):
     """Schema cho danh sách vocabularies với pagination."""
-    items: list[VocabularyResponse]
+    items: List[VocabularyResponse]
     total: int
     page: int
     page_size: int
@@ -111,4 +144,4 @@ class VocabularyStatsResponse(BaseModel):
     due_today: int
     learned: int  # repetitions > 0
     learning: int  # repetitions == 0
-    by_difficulty: dict[str, int]
+    by_word_type: dict[str, int]

@@ -1,27 +1,111 @@
 """
 Vocabulary API Router - Các endpoints quản lý từ vựng.
+Updated để hỗ trợ multiple meanings và import/export.
 """
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Optional, Literal
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.responses import PlainTextResponse
 from sqlmodel import Session
 
 from app.api import deps
 from app.models.user import User
-from app.models.enums import DifficultyLevel
+from app.models.enums import WordType, ReviewQuality, MeaningSource
 from app.schemas.vocabulary import (
     VocabularyCreate,
     VocabularyUpdate,
     VocabularyReview,
     VocabularyResponse,
     VocabularyListResponse,
-    VocabularyStatsResponse
+    VocabularyStatsResponse,
+    MeaningCreate,
+    MeaningResponse,
+    VocabularyImportRequest,
+    ImportResultResponse
 )
 from app.schemas.quiz import QuizSessionResponse, QuizSubmit
 from app.services.vocabulary_service import VocabularyService
-from app.models.enums import ReviewQuality
 
 router = APIRouter()
 
+
+# ============= Import/Export Endpoints =============
+
+@router.post("/import", response_model=ImportResultResponse)
+async def import_vocabularies(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+    import_data: VocabularyImportRequest
+):
+    """
+    Import từ vựng từ nội dung TXT.
+    
+    Format mỗi dòng: word|definition|example (definition và example optional)
+    
+    Nếu word đã tồn tại, sẽ merge thêm meaning mới.
+    Nếu không có definition và auto_fetch_meaning=True, sẽ tự động fetch từ API.
+    """
+    service = VocabularyService(db)
+    result = await service.import_from_txt(
+        user_id=current_user.id,
+        content=import_data.content,
+        auto_fetch_meaning=import_data.auto_fetch_meaning
+    )
+    
+    return ImportResultResponse(
+        total_processed=result.total_processed,
+        new_words=result.new_words,
+        merged_meanings=result.merged_meanings,
+        auto_generated_count=result.auto_generated_count,
+        failed_auto_meaning=result.failed_auto_meaning,
+        warnings=result.warnings,
+        errors=result.errors
+    )
+
+
+@router.get("/export")
+def export_vocabularies(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+    format: Literal["json", "txt", "csv"] = Query("json", description="Format export"),
+    page: Optional[int] = Query(None, ge=1, description="Page number (optional, None = all)")
+):
+    """
+    Export từ vựng của user theo format được chọn.
+    
+    - **json**: JSON với đầy đủ thông tin
+    - **txt**: word|definition|example (mỗi dòng một meaning)
+    - **csv**: CSV với header
+    """
+    service = VocabularyService(db)
+    content = service.export_vocabularies(
+        user_id=current_user.id,
+        format=format,
+        page=page
+    )
+    
+    # Set appropriate content type
+    if format == "json":
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=vocabularies.json"}
+        )
+    elif format == "csv":
+        return Response(
+            content=content,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=vocabularies.csv"}
+        )
+    else:  # txt
+        return PlainTextResponse(
+            content=content,
+            headers={"Content-Disposition": "attachment; filename=vocabularies.txt"}
+        )
+
+
+# ============= CRUD Endpoints =============
 
 @router.post("/", response_model=VocabularyResponse, status_code=status.HTTP_201_CREATED)
 def create_vocabulary(
@@ -32,6 +116,9 @@ def create_vocabulary(
 ):
     """
     Tạo một từ vựng mới cho người dùng hiện tại.
+    
+    Word sẽ được tự động normalize (lowercase, trim).
+    Word type sẽ được tự động classify nếu không chỉ định.
     """
     service = VocabularyService(db)
     try:
@@ -47,7 +134,7 @@ def list_vocabularies(
     current_user: User = Depends(deps.get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    difficulty: Optional[DifficultyLevel] = None,
+    word_type: Optional[WordType] = Query(None, description="Filter theo word type"),
     status: Optional[str] = Query(None, description="Trạng thái: LEARNED, LEARNING, DUE"),
     search: Optional[str] = None
 ):
@@ -60,7 +147,7 @@ def list_vocabularies(
         user_id=current_user.id,
         skip=skip,
         limit=page_size,
-        difficulty=difficulty,
+        word_type=word_type,
         status=status,
         search=search
     )
@@ -110,13 +197,10 @@ def submit_quiz_answer(
     submit_in: QuizSubmit
 ):
     """
-    Submit kết quả của một câu hỏi quiz. 
-    Tương tự như review, điều này sẽ cập nhật trạng thái SRS.
+    Submit kết quả của một câu hỏi quiz.
     """
     service = VocabularyService(db)
     
-    # Định nghĩa chất lượng review dựa trên đúng/sai trong quiz
-    # Nếu đúng, giả định là GOOD (2). Nếu sai, giả định là AGAIN (0).
     quality = ReviewQuality.GOOD if submit_in.is_correct else ReviewQuality.AGAIN
     
     review_data = VocabularyReview(
@@ -170,7 +254,11 @@ def update_vocabulary(
     Cập nhật thông tin từ vựng.
     """
     service = VocabularyService(db)
-    vocab = service.update_vocab(vocab_id=id, user_id=current_user.id, vocab_data=vocab_in)
+    try:
+        vocab = service.update_vocab(vocab_id=id, user_id=current_user.id, vocab_data=vocab_in)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    
     if not vocab:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -223,4 +311,34 @@ def review_vocabulary(
         )
     return vocab
 
-    return vocab
+
+# ============= Meaning Endpoints =============
+
+@router.post("/{id}/meanings", response_model=MeaningResponse, status_code=status.HTTP_201_CREATED)
+def add_meaning(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+    id: int,
+    meaning_in: MeaningCreate
+):
+    """
+    Thêm meaning mới cho vocabulary.
+    
+    Duplicate meanings sẽ bị bỏ qua.
+    """
+    service = VocabularyService(db)
+    meaning = service.add_meaning(
+        vocab_id=id,
+        user_id=current_user.id,
+        meaning_data=meaning_in,
+        source=MeaningSource.MANUAL,
+        is_auto=False
+    )
+    
+    if not meaning:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không tìm thấy từ vựng hoặc meaning đã tồn tại"
+        )
+    return meaning

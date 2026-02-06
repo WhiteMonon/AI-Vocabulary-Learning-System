@@ -3,22 +3,23 @@ Vocabulary model với SRS (Spaced Repetition System) fields.
 """
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
-from sqlmodel import Field, Relationship, Column, String, Float, Integer, DateTime
+from sqlmodel import Field, Relationship, Column, String, Float, Integer, DateTime, Boolean
 from sqlalchemy import Index, UniqueConstraint, CheckConstraint
 
 from app.db.base import BaseModel
-from app.models.enums import DifficultyLevel
+from app.models.enums import WordType
 
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.review_history import ReviewHistory
     from app.models.ai_practice_log import AIPracticeLog
+    from app.models.vocabulary_meaning import VocabularyMeaning
 
 
 class Vocabulary(BaseModel, table=True):
     """
     Vocabulary model với SRS algorithm fields (SM-2).
-    Mỗi vocabulary thuộc về một user và có thể có nhiều review histories và AI practice logs.
+    Mỗi vocabulary thuộc về một user và có thể có nhiều meanings, review histories và AI practice logs.
     """
     __tablename__ = "vocabularies"
     
@@ -29,25 +30,22 @@ class Vocabulary(BaseModel, table=True):
         description="ID của user sở hữu vocabulary này"
     )
     
-    # Vocabulary content
+    # Vocabulary content - normalized (lowercase, trimmed)
     word: str = Field(
         sa_column=Column(String, nullable=False),
-        description="Từ vựng cần học"
-    )
-    definition: str = Field(
-        nullable=False,
-        description="Định nghĩa của từ"
-    )
-    example_sentence: Optional[str] = Field(
-        default=None,
-        description="Câu ví dụ sử dụng từ"
+        description="Từ vựng cần học (normalized: lowercase, trimmed)"
     )
     
-    # Difficulty
-    difficulty_level: DifficultyLevel = Field(
-        default=DifficultyLevel.MEDIUM,
+    # Word classification
+    word_type: WordType = Field(
+        default=WordType.CONTENT_WORD,
         nullable=False,
-        description="Mức độ khó của vocabulary"
+        description="Phân loại từ: function_word hoặc content_word"
+    )
+    is_word_type_manual: bool = Field(
+        sa_column=Column(Boolean, nullable=False, default=False),
+        default=False,
+        description="True nếu user đã override word_type manually"
     )
     
     # SRS Algorithm fields (SM-2)
@@ -74,6 +72,10 @@ class Vocabulary(BaseModel, table=True):
     
     # Relationships
     user: "User" = Relationship(back_populates="vocabularies")
+    meanings: List["VocabularyMeaning"] = Relationship(
+        back_populates="vocabulary",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
     review_histories: List["ReviewHistory"] = Relationship(
         back_populates="vocabulary",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}

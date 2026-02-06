@@ -45,3 +45,16 @@ class AIProviderName(str, Enum):
     GROQ = "groq"
     GEMINI = "gemini"
     LOCAL_HF = "local"
+
+
+class WordType(str, Enum):
+    """Phân loại từ vựng: Function Words vs Content Words."""
+    FUNCTION_WORD = "function_word"  # the, a, is, are, in, on...
+    CONTENT_WORD = "content_word"    # nouns, verbs, adjectives, adverbs
+
+
+class MeaningSource(str, Enum):
+    """Nguồn gốc của definition."""
+    MANUAL = "manual"                  # User nhập trực tiếp
+    DICTIONARY_API = "dictionary_api"  # Từ Free Dictionary API
+    AUTO_TRANSLATE = "auto_translate"  # Từ LibreTranslate fallback

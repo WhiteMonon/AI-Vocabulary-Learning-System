@@ -13,7 +13,10 @@ async def test_generate_quiz_session_with_mock_ai(auth_client: TestClient, sessi
     """Test tạo phiền quiz với AI provider được mock."""
     # 1. Chuẩn bị data: Từ vựng DUE (next_review_date <= now)
     # create_vocabulary endpoint mặc định đặt next_review_date = now (DUE)
-    auth_client.post("/api/v1/vocabulary/", json={"word": "AI", "definition": "Artificial Intelligence"})
+    auth_client.post("/api/v1/vocabulary/", json={
+        "word": "AI", 
+        "meanings": [{"definition": "Artificial Intelligence"}]
+    })
     
     # 2. Mock AI Provider
     mock_ai_question = AIQuestion(
@@ -36,7 +39,7 @@ async def test_generate_quiz_session_with_mock_ai(auth_client: TestClient, sessi
         data = response.json()
         assert "questions" in data
         assert len(data["questions"]) > 0
-        assert data["questions"][0]["word"] == "AI"
+        assert data["questions"][0]["word"] == "ai"
         assert data["questions"][0]["question_text"] == "What does AI stand for?"
 
 
