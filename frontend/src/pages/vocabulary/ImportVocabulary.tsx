@@ -1,43 +1,175 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { importVocabulary } from '../../api/vocabulary';
+import { Upload, FileText, AlertCircle, CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { ImportResultResponse } from '../../types/vocabulary';
+
+interface ProcessedItem {
+    word: string;
+    status: 'success' | 'failed' | 'warning';
+    message: string;
+}
+
+interface ProgressData {
+    current: number;
+    total: number;
+    percent: number;
+}
 
 const ImportVocabulary: React.FC = () => {
     const navigate = useNavigate();
     const [content, setContent] = useState('');
     const [autoFetch, setAutoFetch] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false);
     const [result, setResult] = useState<ImportResultResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const handleImport = async () => {
+    // Streaming states
+    const [progress, setProgress] = useState<ProgressData>({ current: 0, total: 0, percent: 0 });
+    const [processedItems, setProcessedItems] = useState<ProcessedItem[]>([]);
+    const eventSourceRef = useRef<EventSource | null>(null);
+    const logContainerRef = useRef<HTMLDivElement | null>(null);
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+    const handleImportStream = async () => {
         if (!content.trim()) {
             setError('Vui lòng nhập nội dung để import');
             return;
         }
 
-        setIsLoading(true);
+        setIsStreaming(true);
         setError(null);
         setResult(null);
+        setProgress({ current: 0, total: 0, percent: 0 });
+        setProcessedItems([]);
 
         try {
-            const response = await importVocabulary({
+            // Tạo request body
+            const requestBody = {
                 content,
                 auto_fetch_meaning: autoFetch
+            };
+
+            // Gọi API với fetch để lấy stream
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/api/v1/vocabulary/import-stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(requestBody)
             });
-            setResult(response);
-            if (response.total_processed > 0) {
-                setContent('');
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) {
+                throw new Error('No response body');
+            }
+
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+
+                    const eventMatch = line.match(/^event: (.+)$/m);
+                    const dataMatch = line.match(/^data: (.+)$/m);
+
+                    if (eventMatch && dataMatch) {
+                        const eventType = eventMatch[1];
+                        const eventData = JSON.parse(dataMatch[1]);
+
+                        handleSSEEvent(eventType, eventData);
+                    }
+                }
+            }
+
         } catch (err: any) {
-            console.error('Import failed:', err);
-            setError(err.response?.data?.detail || 'Import thất bại. Vui lòng thử lại.');
+            console.error('Import stream failed:', err);
+            setError(err.message || 'Import thất bại. Vui lòng thử lại.');
         } finally {
-            setIsLoading(false);
+            setIsStreaming(false);
         }
     };
+
+    const handleSSEEvent = (eventType: string, data: any) => {
+        switch (eventType) {
+            case 'progress':
+                setProgress(data);
+                break;
+
+            case 'item_processed':
+                setProcessedItems(prev => [...prev, data]);
+                // Auto-scroll to bottom
+                setTimeout(() => {
+                    if (logContainerRef.current) {
+                        logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+                    }
+                }, 50);
+                break;
+
+            case 'completed':
+                setResult(data);
+                setContent('');
+                break;
+
+            case 'error':
+                setError(data.message || 'Có lỗi xảy ra');
+                break;
+        }
+    };
+
+    const handleCancel = () => {
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
+        }
+        setIsStreaming(false);
+        setError('Import đã bị hủy');
+    };
+
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'success':
+                return <CheckCircle className="w-4 h-4 text-green-600" />;
+            case 'failed':
+                return <XCircle className="w-4 h-4 text-red-600" />;
+            case 'warning':
+                return <AlertCircle className="w-4 h-4 text-amber-600" />;
+            default:
+                return null;
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'success':
+                return 'bg-green-50 border-green-200 text-green-800';
+            case 'failed':
+                return 'bg-red-50 border-red-200 text-red-800';
+            case 'warning':
+                return 'bg-amber-50 border-amber-200 text-amber-800';
+            default:
+                return 'bg-gray-50 border-gray-200 text-gray-800';
+        }
+    };
+
+    const successCount = processedItems.filter(i => i.status === 'success').length;
+    const failedCount = processedItems.filter(i => i.status === 'failed').length;
+    const warningCount = processedItems.filter(i => i.status === 'warning').length;
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-8">
@@ -75,6 +207,7 @@ const ImportVocabulary: React.FC = () => {
                             placeholder={"apple\nbanana|quả chuối\ncomputer|máy tính|I use computer everyday"}
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
+                            disabled={isStreaming}
                         />
                     </div>
 
@@ -86,11 +219,77 @@ const ImportVocabulary: React.FC = () => {
                             className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300"
                             checked={autoFetch}
                             onChange={(e) => setAutoFetch(e.target.checked)}
+                            disabled={isStreaming}
                         />
                         <label htmlFor="autoFetch" className="text-gray-700 font-medium cursor-pointer select-none">
                             Tự động tìm nghĩa và ví dụ cho từ mới (AI)
                         </label>
                     </div>
+
+                    {/* Progress Bar */}
+                    {isStreaming && (
+                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-6 animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <Loader2 className="w-5 h-5 text-emerald-600 animate-spin" />
+                                    <span className="font-bold text-emerald-800">Đang xử lý...</span>
+                                </div>
+                                <span className="text-2xl font-bold text-emerald-600">{progress.percent}%</span>
+                            </div>
+
+                            <div className="w-full bg-emerald-100 rounded-full h-3 overflow-hidden mb-3">
+                                <div
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300 ease-out"
+                                    style={{ width: `${progress.percent}%` }}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between text-sm text-emerald-700">
+                                <span>{progress.current} / {progress.total} từ</span>
+                                <div className="flex items-center gap-4">
+                                    <span className="flex items-center gap-1">
+                                        <CheckCircle className="w-4 h-4 text-green-600" />
+                                        {successCount}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                                        {warningCount}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <XCircle className="w-4 h-4 text-red-600" />
+                                        {failedCount}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Live Log */}
+                    {processedItems.length > 0 && (
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                                <span className="text-sm font-bold text-gray-700">Chi tiết xử lý</span>
+                                <span className="text-xs text-gray-500">{processedItems.length} items</span>
+                            </div>
+                            <div
+                                ref={logContainerRef}
+                                className="max-h-64 overflow-y-auto p-4 space-y-2 bg-gray-50"
+                            >
+                                {processedItems.map((item, index) => (
+                                    <div
+                                        key={index}
+                                        className={`flex items-start gap-3 p-3 rounded-lg border text-sm ${getStatusColor(item.status)}`}
+                                    >
+                                        {getStatusIcon(item.status)}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold truncate">{item.word}</div>
+                                            <div className="text-xs opacity-80 truncate">{item.message}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Error Message */}
                     {error && (
@@ -105,7 +304,7 @@ const ImportVocabulary: React.FC = () => {
                         <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 animate-in fade-in slide-in-from-top-2">
                             <h3 className="text-lg font-bold text-emerald-800 mb-4 flex items-center gap-2">
                                 <CheckCircle className="w-5 h-5" />
-                                Kết quả Import
+                                Hoàn thành Import!
                             </h3>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                 <div className="bg-white p-3 rounded-lg border border-emerald-100 shadow-sm">
@@ -126,7 +325,6 @@ const ImportVocabulary: React.FC = () => {
                                 </div>
                             </div>
 
-
                             {result.failed_auto_meaning && result.failed_auto_meaning.length > 0 && (
                                 <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
                                     <div className="text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
@@ -141,17 +339,6 @@ const ImportVocabulary: React.FC = () => {
                                             <span key={i} className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full font-medium">{word}</span>
                                         ))}
                                     </div>
-                                </div>
-                            )}
-
-                            {result.errors.length > 0 && (
-                                <div className="mt-4">
-                                    <div className="text-sm font-bold text-red-700 mb-1">Lỗi chi tiết:</div>
-                                    <ul className="list-disc list-inside text-sm text-red-600 max-h-40 overflow-y-auto">
-                                        {result.errors.map((err, i) => (
-                                            <li key={i}>{err}</li>
-                                        ))}
-                                    </ul>
                                 </div>
                             )}
 
@@ -171,21 +358,29 @@ const ImportVocabulary: React.FC = () => {
                         <button
                             onClick={() => navigate('/vocabulary')}
                             className="px-6 py-2.5 text-gray-600 font-medium hover:bg-gray-50 rounded-xl transition-colors"
+                            disabled={isStreaming}
                         >
                             Quay lại
                         </button>
-                        <button
-                            onClick={handleImport}
-                            disabled={isLoading || !content.trim()}
-                            className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                        >
-                            {isLoading ? (
-                                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            ) : (
+
+                        {isStreaming ? (
+                            <button
+                                onClick={handleCancel}
+                                className="px-8 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-200 flex items-center"
+                            >
+                                <XCircle className="w-5 h-5 mr-2" />
+                                Hủy Import
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleImportStream}
+                                disabled={!content.trim()}
+                                className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                            >
                                 <Upload className="w-5 h-5 mr-2" />
-                            )}
-                            Tiến hành Import
-                        </button>
+                                Tiến hành Import
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

@@ -468,6 +468,194 @@ class VocabularyService:
         
         return result
     
+    async def import_from_txt_stream(
+        self,
+        user_id: int,
+        content: str,
+        auto_fetch_meaning: bool = True,
+        batch_commit_size: int = 50
+    ):
+        """
+        Import từ vựng với streaming progress updates (SSE).
+        
+        Yield events:
+        - progress: {"type": "progress", "data": {"current": N, "total": M, "percent": X}}
+        - item_processed: {"type": "item_processed", "data": {"word": "...", "status": "success|failed", "message": "..."}}
+        - completed: {"type": "completed", "data": ImportResult}
+        - error: {"type": "error", "data": {"message": "..."}}
+        
+        Args:
+            user_id: ID của user
+            content: Nội dung file TXT
+            auto_fetch_meaning: Tự động dịch từ nếu không có definition
+            batch_commit_size: Commit database sau mỗi N items
+        
+        Yields:
+            Dict với event type và data
+        """
+        result = ImportResult()
+        lines = content.strip().split('\n')
+        
+        # Đếm số dòng hợp lệ
+        valid_lines = [l for l in lines if l.strip() and not l.strip().startswith('#')]
+        total = len(valid_lines)
+        
+        logger.info(f"Starting streaming import: {total} valid lines, auto_fetch={auto_fetch_meaning}")
+        
+        # Yield initial progress
+        yield {
+            "type": "progress",
+            "data": {"current": 0, "total": total, "percent": 0}
+        }
+        
+        processed_count = 0
+        batch_buffer = []
+        
+        # Process từng dòng
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            processed_count += 1
+            result.total_processed += 1
+            
+            try:
+                # Parse: word|definition|example
+                parts = line.split('|')
+                word = self.normalize_word(parts[0]) if parts else ""
+                
+                if not word:
+                    result.warnings.append(f"Line {line_num}: Empty word")
+                    yield {
+                        "type": "item_processed",
+                        "data": {
+                            "word": f"Line {line_num}",
+                            "status": "warning",
+                            "message": "Empty word"
+                        }
+                    }
+                    continue
+                
+                definition = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+                example = parts[2].strip() if len(parts) > 2 and parts[2].strip() else None
+                
+                # Xác định definition
+                final_definition = None
+                final_example = example
+                meaning_source = MeaningSource.MANUAL
+                is_auto = False
+                
+                # Dịch definition nếu có
+                if definition:
+                    translated = await self.dictionary_service.translate_text(definition)
+                    final_definition = translated if translated else definition
+                    if translated:
+                        meaning_source = MeaningSource.AUTO_TRANSLATE
+                        is_auto = True
+                
+                # Dịch từ nếu không có definition và auto_fetch = True
+                elif auto_fetch_meaning:
+                    translated = await self.dictionary_service.translate_text(word)
+                    if translated:
+                        final_definition = translated
+                        meaning_source = MeaningSource.AUTO_TRANSLATE
+                        is_auto = True
+                        result.auto_generated_count += 1
+                
+                # Dịch example nếu có
+                if example:
+                    translated_example = await self.dictionary_service.translate_text(example)
+                    if translated_example:
+                        final_example = translated_example
+                
+                # Nếu không có definition
+                if not final_definition:
+                    result.failed_auto_meaning.append(word)
+                    result.warnings.append(f"Line {line_num}: No definition for '{word}'")
+                    self._create_or_merge_vocab(user_id, word, None, None, result)
+                    
+                    yield {
+                        "type": "item_processed",
+                        "data": {
+                            "word": word,
+                            "status": "warning",
+                            "message": "No definition found"
+                        }
+                    }
+                else:
+                    # Tạo hoặc merge vocabulary
+                    self._create_or_merge_vocab(
+                        user_id, word, final_definition, final_example,
+                        result, meaning_source, is_auto
+                    )
+                    
+                    yield {
+                        "type": "item_processed",
+                        "data": {
+                            "word": word,
+                            "status": "success",
+                            "message": f"Added: {final_definition[:50]}..."
+                        }
+                    }
+                
+                # Batch commit
+                batch_buffer.append(word)
+                if len(batch_buffer) >= batch_commit_size:
+                    self.session.commit()
+                    logger.debug(f"Batch committed: {len(batch_buffer)} items")
+                    batch_buffer.clear()
+                
+            except Exception as e:
+                error_msg = str(e)
+                result.errors.append(f"Line {line_num}: {error_msg}")
+                logger.error(f"Import error at line {line_num}: {e}")
+                
+                yield {
+                    "type": "item_processed",
+                    "data": {
+                        "word": word if 'word' in locals() else f"Line {line_num}",
+                        "status": "failed",
+                        "message": error_msg
+                    }
+                }
+            
+            # Yield progress update
+            percent = int((processed_count / total) * 100) if total > 0 else 100
+            yield {
+                "type": "progress",
+                "data": {
+                    "current": processed_count,
+                    "total": total,
+                    "percent": percent
+                }
+            }
+        
+        # Final commit
+        if batch_buffer:
+            self.session.commit()
+            logger.debug(f"Final commit: {len(batch_buffer)} items")
+        
+        logger.info(
+            f"Streaming import done: {result.new_words} new, {result.merged_meanings} merged, "
+            f"{result.auto_generated_count} auto, {len(result.failed_auto_meaning)} failed"
+        )
+        
+        # Yield completion event
+        yield {
+            "type": "completed",
+            "data": {
+                "total_processed": result.total_processed,
+                "new_words": result.new_words,
+                "merged_meanings": result.merged_meanings,
+                "auto_generated_count": result.auto_generated_count,
+                "failed_auto_meaning": result.failed_auto_meaning,
+                "warnings": result.warnings,
+                "errors": result.errors
+            }
+        }
+    
+
     def _create_or_merge_vocab(
         self,
         user_id: int,

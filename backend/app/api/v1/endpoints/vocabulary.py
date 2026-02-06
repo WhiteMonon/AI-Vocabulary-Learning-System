@@ -2,9 +2,10 @@
 Vocabulary API Router - Các endpoints quản lý từ vựng.
 Updated để hỗ trợ multiple meanings và import/export.
 """
+import json
 from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlmodel import Session
 
 from app.api import deps
@@ -61,6 +62,71 @@ async def import_vocabularies(
         warnings=result.warnings,
         errors=result.errors
     )
+
+
+@router.post("/import-stream")
+async def import_vocabularies_stream(
+    *,
+    current_user: User = Depends(deps.get_current_user),
+    import_data: VocabularyImportRequest
+):
+    """
+    Import từ vựng với streaming progress updates (SSE).
+    
+    Endpoint này sử dụng Server-Sent Events để gửi real-time progress updates.
+    
+    Events:
+    - progress: {"type": "progress", "data": {"current": N, "total": M, "percent": X}}
+    - item_processed: {"type": "item_processed", "data": {"word": "...", "status": "success|failed|warning", "message": "..."}}
+    - completed: {"type": "completed", "data": ImportResult}
+    """
+    # Lưu user_id trước khi vào generator (tránh detached session)
+    user_id = current_user.id
+    content = import_data.content
+    auto_fetch = import_data.auto_fetch_meaning
+    
+    async def event_generator():
+        """Generator để format events cho SSE với session riêng."""
+        from app.db.session import engine
+        from sqlmodel import Session
+        
+        # Tạo session mới trong generator
+        db = Session(engine)
+        try:
+            service = VocabularyService(db)
+            
+            async for event in service.import_from_txt_stream(
+                user_id=user_id,
+                content=content,
+                auto_fetch_meaning=auto_fetch
+            ):
+                # Format SSE event
+                event_type = event.get("type", "message")
+                event_data = json.dumps(event.get("data", {}), ensure_ascii=False)
+                
+                # SSE format: event: <type>\ndata: <json>\n\n
+                yield f"event: {event_type}\n"
+                yield f"data: {event_data}\n\n"
+                
+        except Exception as e:
+            # Send error event
+            error_data = json.dumps({"message": str(e)}, ensure_ascii=False)
+            yield f"event: error\n"
+            yield f"data: {error_data}\n\n"
+        finally:
+            # Đảm bảo đóng session
+            db.close()
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
+
 
 
 @router.get("/export")
