@@ -4,7 +4,7 @@ Vocabulary model với SRS (Spaced Repetition System) fields.
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, Column, String, Float, Integer, DateTime, Boolean
-from sqlalchemy import Index, UniqueConstraint, CheckConstraint
+from sqlalchemy import Index, UniqueConstraint, CheckConstraint, Enum
 
 from app.db.base import BaseModel
 from app.models.enums import WordType
@@ -38,8 +38,8 @@ class Vocabulary(BaseModel, table=True):
     
     # Word classification
     word_type: WordType = Field(
+        sa_column=Column(Enum(WordType, values_callable=lambda x: [e.value for e in x]), nullable=False),
         default=WordType.CONTENT_WORD,
-        nullable=False,
         description="Phân loại từ: function_word hoặc content_word"
     )
     is_word_type_manual: bool = Field(

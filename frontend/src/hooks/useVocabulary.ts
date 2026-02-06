@@ -10,6 +10,7 @@ import {
     VocabularyFilters,
     VocabularyUpdate,
     VocabularyListResponse,
+    Vocabulary,
 } from '../types/vocabulary';
 
 export const useVocabularies = (filters: VocabularyFilters) => {
@@ -57,7 +58,7 @@ export const useUpdateVocabulary = () => {
                     return {
                         ...old,
                         items: old.items.map((item) =>
-                            item.id === id ? { ...item, ...vocab } : item
+                            item.id === id ? { ...item, ...vocab } as unknown as Vocabulary : item
                         ),
                     };
                 }

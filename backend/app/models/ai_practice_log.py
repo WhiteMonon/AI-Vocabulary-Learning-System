@@ -4,7 +4,7 @@ AIPracticeLog model để track AI practice interactions.
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, Relationship, Column, Integer, DateTime, Text
-from sqlalchemy import Index, CheckConstraint
+from sqlalchemy import Index, CheckConstraint, Enum
 
 from app.db.base import BaseModel
 from app.models.enums import PracticeType
@@ -36,7 +36,7 @@ class AIPracticeLog(BaseModel, table=True):
     
     # Practice data
     practice_type: PracticeType = Field(
-        nullable=False,
+        sa_column=Column(Enum(PracticeType, values_callable=lambda x: [e.value for e in x]), nullable=False),
         description="Loại bài tập AI"
     )
     prompt: str = Field(

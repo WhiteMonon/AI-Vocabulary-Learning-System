@@ -159,11 +159,11 @@ const ReviewSession: React.FC = () => {
                             Định nghĩa
                         </span>
                         <h2 className="text-3xl md:text-4xl font-bold text-gray-800 leading-tight">
-                            {currentVocab.definition}
+                            {currentVocab.meanings?.[0]?.definition || "N/A"}
                         </h2>
-                        {currentVocab.example_sentence && (
+                        {currentVocab.meanings?.[0]?.example_sentence && (
                             <p className="mt-4 text-gray-500 italic">
-                                "{currentVocab.example_sentence.replace(currentVocab.word, '_______')}"
+                                "{currentVocab.meanings[0].example_sentence.replace(currentVocab.word, '_______')}"
                             </p>
                         )}
                     </div>

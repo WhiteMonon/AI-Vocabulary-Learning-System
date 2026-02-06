@@ -11,6 +11,8 @@ import Quiz from './pages/vocabulary/Quiz';
 import AIPractice from './pages/AIPractice';
 import { useAuth } from './context/AuthContext';
 
+import ImportVocabulary from './pages/vocabulary/ImportVocabulary';
+
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
@@ -37,6 +39,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="vocabulary" element={<VocabularyList />} />
           <Route path="vocabulary/new" element={<AddVocabulary />} />
+          <Route path="vocabulary/import" element={<ImportVocabulary />} />
           <Route path="vocabulary/:id/edit" element={<EditVocabulary />} />
           <Route path="vocabulary/review" element={<ReviewSession />} />
           <Route path="vocabulary/quiz" element={<Quiz />} />

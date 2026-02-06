@@ -4,7 +4,7 @@ ReviewHistory model để track learning progress.
 from datetime import datetime
 from typing import TYPE_CHECKING
 from sqlmodel import Field, Relationship, Column, Integer, DateTime
-from sqlalchemy import Index, CheckConstraint
+from sqlalchemy import Index, CheckConstraint, Enum
 
 from app.db.base import BaseModel
 from app.models.enums import ReviewQuality

@@ -381,8 +381,8 @@ class VocabularyService:
         Args:
             user_id: ID của user
             content: Nội dung file TXT
-            batch_size: Số lượng records xử lý mỗi batch
-            auto_fetch_meaning: Tự động fetch meaning nếu không có
+            batch_size: Không sử dụng (giữ để tương thích)
+            auto_fetch_meaning: Tự động dịch từ nếu không có definition
             
         Returns:
             ImportResult với thống kê chi tiết
@@ -390,82 +390,80 @@ class VocabularyService:
         result = ImportResult()
         lines = content.strip().split('\n')
         
-        # Collect words cần auto-fetch meaning
-        words_need_meaning: List[str] = []
-        parsed_entries: List[tuple] = []  # (word, definition, example)
+        logger.info(f"Starting import: {len(lines)} lines, auto_fetch={auto_fetch_meaning}")
         
-        # Parse all lines first
+        # Process từng dòng
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
-            if not line or line.startswith('#'):  # Skip empty lines và comments
+            if not line or line.startswith('#'):
                 continue
             
             result.total_processed += 1
             
-            # Parse line: word|definition|example
-            parts = line.split('|')
-            word = self.normalize_word(parts[0]) if parts else ""
-            
-            if not word:
-                result.warnings.append(f"Line {line_num}: Empty word skipped")
-                continue
-            
-            definition = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
-            example = parts[2].strip() if len(parts) > 2 and parts[2].strip() else None
-            
-            parsed_entries.append((word, definition, example, line_num))
-            
-            if not definition and auto_fetch_meaning:
-                words_need_meaning.append(word)
-        
-        # Batch fetch meanings cho words không có definition
-        auto_meanings: dict = {}
-        if words_need_meaning:
-            logger.info(f"Auto-fetching meanings for {len(words_need_meaning)} words")
-            auto_meanings = await self.dictionary_service.batch_get_definitions(
-                list(set(words_need_meaning))
-            )
-        
-        # Process entries
-        for word, definition, example, line_num in parsed_entries:
             try:
-                # Determine definition to use
-                final_definition = definition
+                # Parse: word|definition|example
+                parts = line.split('|')
+                word = self.normalize_word(parts[0]) if parts else ""
+                
+                if not word:
+                    result.warnings.append(f"Line {line_num}: Empty word")
+                    continue
+                
+                definition = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+                example = parts[2].strip() if len(parts) > 2 and parts[2].strip() else None
+                
+                # Xác định definition
+                final_definition = None
+                final_example = example
                 meaning_source = MeaningSource.MANUAL
                 is_auto = False
                 
-                if not final_definition and word in auto_meanings:
-                    fetched_def, source = auto_meanings[word]
-                    if fetched_def:
-                        final_definition = fetched_def
-                        meaning_source = source
+                # Dịch definition nếu có
+                if definition:
+                    translated = await self.dictionary_service.translate_text(definition)
+                    final_definition = translated if translated else definition
+                    if translated:
+                        meaning_source = MeaningSource.AUTO_TRANSLATE
+                        is_auto = True
+                
+                # Dịch từ nếu không có definition và auto_fetch = True
+                elif auto_fetch_meaning:
+                    translated = await self.dictionary_service.translate_text(word)
+                    if translated:
+                        final_definition = translated
+                        meaning_source = MeaningSource.AUTO_TRANSLATE
                         is_auto = True
                         result.auto_generated_count += 1
                 
+                # Dịch example nếu có
+                if example:
+                    translated_example = await self.dictionary_service.translate_text(example)
+                    if translated_example:
+                        final_example = translated_example
+                
+                # Nếu không có definition
                 if not final_definition:
                     result.failed_auto_meaning.append(word)
-                    result.warnings.append(f"Line {line_num}: No definition found for '{word}'")
-                    # Vẫn tạo vocabulary nhưng không có meaning
+                    result.warnings.append(f"Line {line_num}: No definition for '{word}'")
                     self._create_or_merge_vocab(user_id, word, None, None, result)
                     continue
                 
-                # Create hoặc merge vocabulary
+                # Tạo hoặc merge vocabulary
                 self._create_or_merge_vocab(
-                    user_id, word, final_definition, example,
+                    user_id, word, final_definition, final_example,
                     result, meaning_source, is_auto
                 )
                 
             except Exception as e:
-                result.errors.append(f"Line {line_num}: Error processing '{word}': {str(e)}")
-                logger.error(f"Import error for word '{word}': {e}")
+                result.errors.append(f"Line {line_num}: {str(e)}")
+                logger.error(f"Import error at line {line_num}: {e}")
         
-        # Commit tất cả changes
+        # Commit
         self.session.commit()
         
         logger.info(
-            f"Import completed: {result.total_processed} processed, "
-            f"{result.new_words} new, {result.merged_meanings} merged, "
-            f"{result.auto_generated_count} auto-generated"
+            f"Import done: {result.new_words} new, {result.merged_meanings} merged, "
+            f"{result.auto_generated_count} auto, {len(result.failed_auto_meaning)} failed"
         )
         
         return result

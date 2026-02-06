@@ -50,10 +50,24 @@ app = FastAPI(
 
 # CORS middleware
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")] if settings.CORS_ORIGINS else []
+if settings.DEBUG:
+    extra_origins = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]
+    for o in extra_origins:
+        if o not in origins:
+            origins.append(o)
+
+# If allow_credentials is True, origins cannot be ["*"]
+if "*" in origins and len(origins) > 1:
+    origins.remove("*")
+elif "*" in origins:
+    # If it's only ["*"], we need to be more specific or set allow_credentials to False
+    # For local dev, let's just use the current origin if it's wildcard
+    pass # CORSMiddleware handles "*" with allow_credentials=False better
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=False,  # Set to False to allow wildcard origins
+    allow_origins=origins if "*" not in origins else ["*"],
+    allow_credentials=True if "*" not in origins else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

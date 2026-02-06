@@ -4,11 +4,21 @@ import {
     VocabularyCreate,
     VocabularyUpdate,
     VocabularyListResponse,
-    VocabularyFilters,
     VocabularyReview,
     QuizSessionResponse,
-    QuizSubmit
+    QuizSubmit,
+    VocabularyImportRequest,
+    ImportResultResponse,
+    WordType
 } from '../types/vocabulary';
+
+export interface VocabularyFilters {
+    page?: number;
+    page_size?: number;
+    word_type?: WordType;
+    status?: 'LEARNED' | 'LEARNING' | 'DUE';
+    search?: string;
+}
 
 export const getVocabularies = async (filters: VocabularyFilters = {}): Promise<VocabularyListResponse> => {
     const { data } = await apiClient.get<VocabularyListResponse>('/api/v1/vocabulary/', {
@@ -51,4 +61,17 @@ export const getQuizSession = async (limit: number = 10): Promise<QuizSessionRes
 export const submitQuizAnswer = async (submit: QuizSubmit): Promise<Vocabulary> => {
     const { data } = await apiClient.post<Vocabulary>('/api/v1/vocabulary/quiz-submit-single', submit);
     return data;
+};
+
+export const importVocabulary = async (data: VocabularyImportRequest): Promise<ImportResultResponse> => {
+    const response = await apiClient.post<ImportResultResponse>('/api/v1/vocabulary/import', data);
+    return response.data;
+};
+
+export const exportVocabulary = async (format: 'json' | 'txt' | 'csv'): Promise<Blob> => {
+    const response = await apiClient.get('/api/v1/vocabulary/export', {
+        params: { format },
+        responseType: 'blob',
+    });
+    return response.data;
 };

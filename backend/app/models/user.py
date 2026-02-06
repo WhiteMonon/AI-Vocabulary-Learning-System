@@ -3,7 +3,7 @@ User model với authentication và authorization.
 """
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel, Column, String
-from sqlalchemy import Index
+from sqlalchemy import Index, Enum
 
 from app.db.base import BaseModel
 from app.models.enums import UserRole
@@ -43,8 +43,11 @@ class User(BaseModel, table=True):
     
     # Authorization fields
     role: UserRole = Field(
+        sa_column=Column(
+            Enum(UserRole, values_callable=lambda x: [e.value for e in x] + [e.name for e in x]), 
+            nullable=False
+        ),
         default=UserRole.USER,
-        nullable=False,
         description="Role của user trong hệ thống"
     )
     

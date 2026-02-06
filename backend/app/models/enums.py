@@ -6,8 +6,8 @@ from enum import Enum
 
 class UserRole(str, Enum):
     """Role của user trong hệ thống."""
-    ADMIN = "admin"
-    USER = "user"
+    ADMIN = "ADMIN"
+    USER = "USER"
 
 
 class DifficultyLevel(str, Enum):
@@ -48,9 +48,23 @@ class AIProviderName(str, Enum):
 
 
 class WordType(str, Enum):
-    """Phân loại từ vựng: Function Words vs Content Words."""
-    FUNCTION_WORD = "function_word"  # the, a, is, are, in, on...
-    CONTENT_WORD = "content_word"    # nouns, verbs, adjectives, adverbs
+    """Phân loại từ vựng."""
+    # Specific types (matching frontend)
+    NOUN = "noun"
+    VERB = "verb"
+    ADJECTIVE = "adjective"
+    ADVERB = "adverb"
+    PREPOSITION = "preposition"
+    CONJUNCTION = "conjunction"
+    PRONOUN = "pronoun"
+    INTERJECTION = "interjection"
+    PHRASE = "phrase"
+    IDIOM = "idiom"
+    OTHER = "other"
+    
+    # Legacy types (keep for backward compatibility)
+    FUNCTION_WORD = "function_word"
+    CONTENT_WORD = "content_word"
 
 
 class MeaningSource(str, Enum):

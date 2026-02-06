@@ -3,7 +3,7 @@ DictionaryCache model - Cache API results để giảm external API calls.
 """
 from datetime import datetime, timedelta
 from sqlmodel import Field, Column, String, DateTime
-from sqlalchemy import Index
+from sqlalchemy import Index, Enum
 
 from app.db.base import BaseModel
 from app.models.enums import MeaningSource
@@ -30,7 +30,7 @@ class DictionaryCache(BaseModel, table=True):
     
     # Source tracking
     source: MeaningSource = Field(
-        nullable=False,
+        sa_column=Column(Enum(MeaningSource, values_callable=lambda x: [e.value for e in x]), nullable=False),
         description="Nguồn của definition: dictionary_api hoặc auto_translate"
     )
     

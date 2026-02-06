@@ -4,7 +4,7 @@ VocabularyMeaning model - Multiple meanings cho mỗi vocabulary.
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, Relationship, Column, String, Boolean
-from sqlalchemy import Index
+from sqlalchemy import Index, Enum
 
 from app.db.base import BaseModel
 from app.models.enums import MeaningSource
@@ -39,8 +39,8 @@ class VocabularyMeaning(BaseModel, table=True):
     
     # Auto Meaning Generation tracking
     meaning_source: MeaningSource = Field(
+        sa_column=Column(Enum(MeaningSource, values_callable=lambda x: [e.value for e in x]), nullable=False),
         default=MeaningSource.MANUAL,
-        nullable=False,
         description="Nguồn gốc của meaning: manual, dictionary_api, auto_translate"
     )
     is_auto_generated: bool = Field(

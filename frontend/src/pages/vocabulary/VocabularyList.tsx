@@ -9,17 +9,18 @@ import {
     ChevronLeft,
     ChevronRight,
     Loader2,
-    BookOpen
+    BookOpen,
+    Upload // Add Upload icon
 } from 'lucide-react';
 import { useVocabularies, useDeleteVocabulary } from '../../hooks/useVocabulary';
-import { DifficultyLevel } from '../../types/vocabulary';
+import { WordType } from '../../types/vocabulary';
 
 const VocabularyList: React.FC = () => {
     const [filters, setFilters] = useState({
         page: 1,
         page_size: 10,
         search: '',
-        difficulty: undefined as DifficultyLevel | undefined,
+        word_type: undefined as WordType | undefined,
         status: undefined as 'LEARNED' | 'LEARNING' | 'DUE' | undefined,
     });
 
@@ -30,9 +31,9 @@ const VocabularyList: React.FC = () => {
         setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }));
     };
 
-    const handleDifficultyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const value = e.target.value as DifficultyLevel | '';
-        setFilters(prev => ({ ...prev, difficulty: value === '' ? undefined : value, page: 1 }));
+    const handleWordTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value as WordType | '';
+        setFilters(prev => ({ ...prev, word_type: value === '' ? undefined : value, page: 1 }));
     };
 
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -54,19 +55,6 @@ const VocabularyList: React.FC = () => {
         }
     };
 
-    const getDifficultyBadge = (level: DifficultyLevel) => {
-        switch (level) {
-            case DifficultyLevel.EASY:
-                return <span className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded-full">Dễ</span>;
-            case DifficultyLevel.MEDIUM:
-                return <span className="px-2 py-1 text-xs font-semibold text-yellow-700 bg-yellow-100 rounded-full">Trung bình</span>;
-            case DifficultyLevel.HARD:
-                return <span className="px-2 py-1 text-xs font-semibold text-red-700 bg-red-100 rounded-full">Khó</span>;
-            default:
-                return null;
-        }
-    };
-
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -74,13 +62,22 @@ const VocabularyList: React.FC = () => {
                     <h1 className="text-3xl font-bold text-gray-900">Danh sách từ vựng</h1>
                     <p className="text-gray-600 mt-1">Quản lý và theo dõi tiến độ học tập của bạn</p>
                 </div>
-                <Link
-                    to="/vocabulary/new"
-                    className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Thêm từ mới
-                </Link>
+                <div className="flex gap-2">
+                    <Link
+                        to="/vocabulary/import"
+                        className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors"
+                    >
+                        <Upload className="w-5 h-5 mr-2" />
+                        Import
+                    </Link>
+                    <Link
+                        to="/vocabulary/new"
+                        className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                        <Plus className="w-5 h-5 mr-2" />
+                        Thêm từ mới
+                    </Link>
+                </div>
             </div>
 
             {/* Filters */}
@@ -99,13 +96,13 @@ const VocabularyList: React.FC = () => {
                     <div>
                         <select
                             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none"
-                            value={filters.difficulty || ''}
-                            onChange={handleDifficultyChange}
+                            value={filters.word_type || ''}
+                            onChange={handleWordTypeChange}
                         >
-                            <option value="">Tất cả độ khó</option>
-                            <option value={DifficultyLevel.EASY}>Dễ</option>
-                            <option value={DifficultyLevel.MEDIUM}>Trung bình</option>
-                            <option value={DifficultyLevel.HARD}>Khó</option>
+                            <option value="">Tất cả loại từ</option>
+                            {Object.values(WordType).map((type) => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
                         </select>
                     </div>
                     <div>
@@ -163,8 +160,8 @@ const VocabularyList: React.FC = () => {
                                 <thead className="bg-gray-50 border-b border-gray-100">
                                     <tr>
                                         <th className="px-6 py-4 text-sm font-semibold text-gray-600">Từ vựng</th>
+                                        <th className="px-6 py-4 text-sm font-semibold text-gray-600">Loại từ</th>
                                         <th className="px-6 py-4 text-sm font-semibold text-gray-600">Định nghĩa</th>
-                                        <th className="px-6 py-4 text-sm font-semibold text-gray-600">Độ khó</th>
                                         <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">Thao tác</th>
                                     </tr>
                                 </thead>
@@ -173,17 +170,26 @@ const VocabularyList: React.FC = () => {
                                         <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-gray-900 text-lg">{item.word}</div>
-                                                {item.example_sentence && (
+                                                {/* Display first example sentence if exists */}
+                                                {item.meanings?.[0]?.example_sentence && (
                                                     <div className="text-sm text-gray-500 italic mt-1 line-clamp-1">
-                                                        "{item.example_sentence}"
+                                                        "{item.meanings[0].example_sentence}"
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-gray-600">
-                                                {item.definition}
-                                            </td>
                                             <td className="px-6 py-4">
-                                                {getDifficultyBadge(item.difficulty_level)}
+                                                <span className="px-2 py-1 text-xs font-semibold text-indigo-700 bg-indigo-100 rounded-full">
+                                                    {item.word_type}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600">
+                                                {/* Display first definition */}
+                                                {item.meanings?.[0]?.definition}
+                                                {item.meanings?.length > 1 && (
+                                                    <span className="text-xs text-gray-400 ml-2">
+                                                        (+{item.meanings.length - 1} khác)
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end space-x-2">
@@ -229,8 +235,8 @@ const VocabularyList: React.FC = () => {
                                         key={i + 1}
                                         onClick={() => handlePageChange(i + 1)}
                                         className={`w-10 h-10 rounded-lg font-medium transition-all ${filters.page === i + 1
-                                                ? 'bg-indigo-600 text-white shadow-md'
-                                                : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
                                             }`}
                                     >
                                         {i + 1}
