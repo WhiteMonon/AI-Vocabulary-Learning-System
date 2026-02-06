@@ -46,11 +46,17 @@ def create_review_session(
     """
     review_service = ReviewService(db)
     
+    # Calculate max_vocabularies based on max_questions (assuming 5 questions per vocab)
+    # Default: 20 questions -> 4 vocabularies
+    questions_per_vocab = 5
+    max_vocabularies = max(1, session_data.max_questions // questions_per_vocab)
+    
     # Create session
     review_session = review_service.create_session(
         user_id=current_user.id,
         mode=session_data.mode,
-        max_questions=session_data.max_questions
+        max_vocabularies=max_vocabularies,
+        questions_per_vocab=questions_per_vocab
     )
     
     # Load questions
@@ -70,6 +76,8 @@ def create_review_session(
             question_text=q.question_data.get("question_text", ""),
             options=q.question_data.get("options"),
             context_sentence=q.question_data.get("context_sentence"),
+            audio_url=q.question_data.get("audio_url"),
+            word=q.question_data.get("word"),
             confusion_pair_group=q.confusion_pair_group,
         )
         for q in review_session.questions
@@ -176,6 +184,8 @@ def get_review_session(
             question_text=q.question_data.get("question_text", ""),
             options=q.question_data.get("options"),
             context_sentence=q.question_data.get("context_sentence"),
+            audio_url=q.question_data.get("audio_url"),
+            word=q.question_data.get("word"),
             confusion_pair_group=q.confusion_pair_group,
         )
         for q in review_session.questions

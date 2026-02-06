@@ -237,15 +237,21 @@ async def create_vocabulary(
     
     Word sẽ được tự động normalize (lowercase, trim).
     Word type sẽ được tự động classify nếu không chỉ định.
-    Example sentence sẽ được AI generate trong background.
+    Example sentence, audio và questions sẽ được generate trong background.
     """
     service = VocabularyService(db)
     try:
         vocab = service.create_vocab(user_id=current_user.id, vocab_data=vocab_in)
         
-        # Trigger background task để generate example sentence
-        from app.services.tasks import generate_example_sentence_task
+        # Trigger background tasks
+        from app.services.tasks import (
+            generate_example_sentence_task,
+            generate_audio_task,
+            pre_generate_questions_task
+        )
         background_tasks.add_task(generate_example_sentence_task, vocab.id)
+        background_tasks.add_task(generate_audio_task, vocab.id)
+        background_tasks.add_task(pre_generate_questions_task, vocab.id)
         
         return vocab
     except ValueError as e:

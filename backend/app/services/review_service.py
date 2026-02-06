@@ -38,21 +38,25 @@ class ReviewService:
         self,
         user_id: int,
         mode: str = "due",
-        max_questions: int = 20
+        max_vocabularies: int = 4,
+        questions_per_vocab: int = 5
     ) -> ReviewSession:
         """
-        Tạo review session mới với generated questions.
+        Tạo review session mới với pre-generated questions.
         
         Args:
             user_id: ID của user
             mode: Mode review ('due' hoặc 'new')
-            max_questions: Số câu hỏi tối đa
+            max_vocabularies: Số từ vựng tối đa (default 4)
+            questions_per_vocab: Số câu hỏi cho mỗi từ (default 5)
             
         Returns:
-            ReviewSession đã được tạo với questions
+            ReviewSession đã được tạo với questions (shuffled)
         """
-        # 1. Lấy vocabularies phù hợp
-        vocabularies = self._get_vocabularies_for_review(user_id, mode, max_questions)
+        import random
+        
+        # 1. Lấy vocabularies phù hợp (limit 4)
+        vocabularies = self._get_vocabularies_for_review(user_id, mode, max_vocabularies)
         
         if not vocabularies:
             logger.info(f"No vocabularies available for review (user={user_id}, mode={mode})")
@@ -69,33 +73,112 @@ class ReviewService:
             return empty_session
         
         # 2. Tạo ReviewSession
+        total_questions = len(vocabularies) * questions_per_vocab
         review_session = ReviewSession(
             user_id=user_id,
             status="in_progress",
-            total_questions=len(vocabularies),
+            total_questions=total_questions,
             correct_count=0
         )
         self.session.add(review_session)
         self.session.flush()  # Lấy session.id
         
-        # 3. Generate questions cho mỗi vocabulary
+        # 3. Lấy hoặc generate questions cho mỗi vocabulary
+        all_questions = []
         distractors = vocabularies  # Dùng toàn bộ list làm distractor pool
         
         for vocab in vocabularies:
-            question = self._generate_question(
+            questions = self._get_questions_for_vocabulary(
                 session_id=review_session.id,
                 user_id=user_id,
                 vocabulary=vocab,
+                count=questions_per_vocab,
                 distractors=distractors
             )
+            all_questions.extend(questions)
+        
+        # 4. Shuffle tất cả questions
+        random.shuffle(all_questions)
+        
+        # 5. Lưu questions
+        for question in all_questions:
             self.session.add(question)
         
-        # 4. Commit
+        # 6. Commit
         self.session.commit()
         self.session.refresh(review_session)
         
-        logger.info(f"Created review session {review_session.id} with {len(vocabularies)} questions for user {user_id}")
+        logger.info(f"Created review session {review_session.id} with {len(all_questions)} questions for user {user_id}")
         return review_session
+    
+    def _get_questions_for_vocabulary(
+        self,
+        session_id: int,
+        user_id: int,
+        vocabulary: Vocabulary,
+        count: int,
+        distractors: List[Vocabulary]
+    ) -> List[GeneratedQuestion]:
+        """
+        Lấy questions từ pre-generated pool hoặc generate realtime nếu thiếu.
+        
+        Args:
+            session_id: ID của session
+            user_id: ID của user
+            vocabulary: Vocabulary cần lấy questions
+            count: Số lượng questions cần lấy
+            distractors: Danh sách vocabularies khác làm distractors
+            
+        Returns:
+            List GeneratedQuestion (đã mark session_id)
+        """
+        from sqlmodel import select
+        
+        # 1. Thử lấy từ pool (pre-generated, chưa dùng)
+        statement = select(GeneratedQuestion).where(
+            GeneratedQuestion.vocabulary_id == vocabulary.id,
+            GeneratedQuestion.session_id == None,
+            GeneratedQuestion.is_used == False
+        ).limit(count)
+        
+        pool_questions = list(self.session.exec(statement))
+        
+        # 2. Mark những questions từ pool
+        for q in pool_questions:
+            q.session_id = session_id
+            q.is_used = True
+        
+        # 3. Nếu thiếu, generate realtime
+        remaining = count - len(pool_questions)
+        if remaining > 0:
+            logger.info(f"Pool thiếu {remaining} questions cho vocab {vocabulary.id}, generating realtime...")
+            
+            # Generate bổ sung với đa dạng question types
+            difficulty = self._calculate_difficulty(vocabulary)
+            new_question_data_list = QuestionGeneratorFactory.generate_multiple_questions(
+                vocabulary=vocabulary,
+                count=remaining,
+                difficulty=difficulty,
+                distractors=distractors
+            )
+            
+            # Tạo GeneratedQuestion objects
+            for question_data in new_question_data_list:
+                question = GeneratedQuestion(
+                    session_id=session_id,
+                    user_id=user_id,
+                    vocabulary_id=vocabulary.id,
+                    question_type=question_data["question_type"],
+                    difficulty=difficulty,
+                    question_data=question_data,
+                    confusion_pair_group=question_data.get("confusion_pair_group"),
+                    is_used=True
+                )
+                pool_questions.append(question)
+        
+        return pool_questions
+    
+
     
     def _get_vocabularies_for_review(
         self,
@@ -116,7 +199,10 @@ class ReviewService:
         """
         query = select(Vocabulary).where(
             Vocabulary.user_id == user_id
-        ).options(selectinload(Vocabulary.meanings))
+        ).options(
+            selectinload(Vocabulary.meanings),
+            selectinload(Vocabulary.audios)
+        )
         
         if mode == "due":
             # Lấy vocabularies cần ôn (next_review_date <= now)

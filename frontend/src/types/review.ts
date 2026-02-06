@@ -1,8 +1,18 @@
 // Review System Types
 export enum QuestionType {
-    MEANING_INPUT = 'meaning_input',
+    // Function word types
     FILL_BLANK = 'fill_blank',
     MULTIPLE_CHOICE = 'multiple_choice',
+
+    // Content word types
+    WORD_FROM_MEANING = 'word_from_meaning',
+    MEANING_FROM_WORD = 'meaning_from_word',
+    DICTATION = 'dictation',
+    SYNONYM_ANTONYM_MCQ = 'synonym_antonym_mcq',
+    DEFINITION_MCQ = 'definition_mcq',
+
+    // Legacy
+    MEANING_INPUT = 'meaning_input',
     ERROR_DETECTION = 'error_detection',
 }
 
@@ -20,6 +30,8 @@ export interface QuestionResponse {
     question_text: string;
     options?: string[];
     context_sentence?: string;
+    audio_url?: string;
+    word?: string; // For MEANING_FROM_WORD display
     confusion_pair_group?: string;
 }
 

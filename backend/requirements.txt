@@ -34,3 +34,6 @@ pytest-asyncio==0.23.3
 
 # Translation
 deep-translator==1.11.4
+
+# TTS (Text-to-Speech) cho dictation questions
+edge-tts

@@ -97,6 +97,16 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
 
+# Mount Static Files (cho Audio, images, etc.)
+import os
+from fastapi.staticfiles import StaticFiles
+
+# Tạo thư mục static nếu chưa có
+os.makedirs("static/audio", exist_ok=True)
+
+# Mount endpoint /static
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 # Root endpoint
 @app.get("/", tags=["Root"])

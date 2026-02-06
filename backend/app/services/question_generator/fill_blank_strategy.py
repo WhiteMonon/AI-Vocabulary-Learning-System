@@ -48,8 +48,10 @@ class FillBlankStrategy(QuestionGeneratorStrategy):
         # Lấy example sentence từ VocabularyContext (thay vì từ meanings)
         example_sentence = None
         if vocabulary.contexts:
-            # Lấy context đầu tiên (hoặc random nếu muốn đa dạng)
-            example_sentence = vocabulary.contexts[0].sentence
+            # Lấy random context để tạo sự đa dạng
+            valid_contexts = [c.sentence for c in vocabulary.contexts]
+            if valid_contexts:
+                example_sentence = random.choice(valid_contexts)
         
         # Fallback: nếu không có context, delegate sang MeaningQuestionStrategy
         if not example_sentence:

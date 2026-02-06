@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.models.vocabulary_meaning import VocabularyMeaning
     from app.models.generated_question import GeneratedQuestion
     from app.models.vocabulary_context import VocabularyContext
+    from app.models.vocabulary_audio import VocabularyAudio
 
 
 class Vocabulary(BaseModel, table=True):
@@ -96,6 +97,10 @@ class Vocabulary(BaseModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     contexts: List["VocabularyContext"] = Relationship(
+        back_populates="vocabulary",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    audios: List["VocabularyAudio"] = Relationship(
         back_populates="vocabulary",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

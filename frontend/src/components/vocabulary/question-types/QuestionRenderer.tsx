@@ -3,6 +3,7 @@ import { QuestionType, QuestionResponse } from '../../../types/review';
 import TypingQuestion from './TypingQuestion';
 import MultipleChoiceQuestion from './MultipleChoiceQuestion';
 import FillBlankQuestion from './FillBlankQuestion';
+import DictationQuestion from './DictationQuestion';
 
 interface QuestionRendererProps {
     question: QuestionResponse;
@@ -16,7 +17,9 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
     onAnswerChange,
 }) => {
     switch (question.question_type) {
+        // ============ TYPING TYPES ============
         case QuestionType.MEANING_INPUT:
+        case QuestionType.WORD_FROM_MEANING:
             return (
                 <div>
                     <div className="text-center mb-10">
@@ -34,6 +37,42 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 </div>
             );
 
+        case QuestionType.MEANING_FROM_WORD:
+            return (
+                <div>
+                    <div className="text-center mb-10">
+                        <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider mb-4">
+                            Nhập Nghĩa
+                        </span>
+                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-snug mx-auto mb-2">
+                            {question.word || question.question_text.replace("What does '", "").replace("' mean?", "")}
+                        </h2>
+                        <p className="text-gray-500">Hãy nhập nghĩa của từ này</p>
+                    </div>
+                    <TypingQuestion
+                        onSubmit={onSubmit}
+                        onAnswerChange={onAnswerChange}
+                    />
+                </div>
+            );
+
+        case QuestionType.DICTATION:
+            return (
+                <div>
+                    <div className="text-center mb-6">
+                        <span className="inline-block px-3 py-1 rounded-full bg-pink-50 text-pink-600 text-[10px] font-bold uppercase tracking-wider mb-4">
+                            Nghe & Chép Chính Tả
+                        </span>
+                    </div>
+                    <DictationQuestion
+                        audioUrl={question.audio_url || ''}
+                        onSubmit={onSubmit}
+                        onAnswerChange={onAnswerChange}
+                    />
+                </div>
+            );
+
+        // ============ FILL BLANK ============
         case QuestionType.FILL_BLANK:
             return (
                 <div>
@@ -50,13 +89,32 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 </div>
             );
 
+        // ============ MCQ TYPES ============
         case QuestionType.MULTIPLE_CHOICE:
+        case QuestionType.SYNONYM_ANTONYM_MCQ:
+        case QuestionType.DEFINITION_MCQ:
+            let badgeColor = "bg-purple-50 text-purple-600";
+            let badgeText = "Chọn Đáp Án Đúng";
+
+            if (question.question_type === QuestionType.SYNONYM_ANTONYM_MCQ) {
+                badgeColor = "bg-orange-50 text-orange-600";
+                badgeText = "Đồng Nghĩa / Trái Nghĩa";
+            } else if (question.question_type === QuestionType.DEFINITION_MCQ) {
+                badgeColor = "bg-teal-50 text-teal-600";
+                badgeText = "Chọn Định Nghĩa";
+            }
+
             return (
                 <div>
                     <div className="text-center mb-6">
-                        <span className="inline-block px-3 py-1 rounded-full bg-purple-50 text-purple-600 text-[10px] font-bold uppercase tracking-wider">
-                            Chọn Đáp Án Đúng
+                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeColor}`}>
+                            {badgeText}
                         </span>
+                        {(question.question_type === QuestionType.SYNONYM_ANTONYM_MCQ || question.question_type === QuestionType.DEFINITION_MCQ) && (
+                            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mt-4 mb-2 max-w-2xl mx-auto">
+                                {question.question_text}
+                            </h2>
+                        )}
                     </div>
                     <MultipleChoiceQuestion
                         options={question.options || []}
@@ -77,7 +135,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
         default:
             return (
                 <div className="text-center p-12">
-                    <p className="text-red-500">Unknown question type</p>
+                    <p className="text-red-500">Unknown question type: {question.question_type}</p>
                 </div>
             );
     }

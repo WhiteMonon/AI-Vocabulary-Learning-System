@@ -31,10 +31,11 @@ class GeneratedQuestion(BaseModel, table=True):
     )
     
     # Foreign keys
-    session_id: int = Field(
+    session_id: Optional[int] = Field(
         foreign_key="review_sessions.id",
-        nullable=False,
-        description="ID của review session"
+        nullable=True,
+        default=None,
+        description="ID của review session (NULL = pre-generated, chưa dùng)"
     )
     
     user_id: int = Field(
@@ -118,6 +119,13 @@ class GeneratedQuestion(BaseModel, table=True):
         sa_column=Column(String, nullable=True),
         default=None,
         description="Pattern ID cho Function Word (e.g., 'arrive_at_pattern')"
+    )
+    
+    # Pre-generation tracking
+    is_used: bool = Field(
+        sa_column=Column(Boolean, nullable=False, default=False),
+        default=False,
+        description="True nếu question đã được dùng trong session"
     )
     
     # Relationships

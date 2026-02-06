@@ -48,8 +48,10 @@ class MCQStrategy(QuestionGeneratorStrategy):
         # Lấy example sentence từ VocabularyContext (thay vì từ meanings)
         example_sentence = None
         if vocabulary.contexts:
-            # Lấy context đầu tiên (hoặc random nếu muốn đa dạng)
-            example_sentence = vocabulary.contexts[0].sentence
+            # Lấy random context để tạo sự đa dạng
+            valid_contexts = [c.sentence for c in vocabulary.contexts]
+            if valid_contexts:
+                example_sentence = random.choice(valid_contexts)
         
         # Fallback: nếu không có context, delegate sang MeaningQuestionStrategy
         if not example_sentence:
@@ -72,9 +74,18 @@ class MCQStrategy(QuestionGeneratorStrategy):
             distractor_words = [v.word for v in distractors if v.word != word]
             options.extend(random.sample(distractor_words, min(3, len(distractor_words))))
         
+        # Fallback distractors if DB is empty
+        fallback_distractors = ["something", "anything", "nothing", "everything", "someone", "anyone", "this", "that", "these", "those"]
+        
         # Đảm bảo có đủ 4 options
         while len(options) < 4:
-            options.append("other")
+            # Pick a unique fallback
+            candidate = random.choice(fallback_distractors)
+            if candidate not in options:
+                options.append(candidate)
+            else:
+                # If collision, just append a variant to ensure loop termination
+                options.append(candidate + " (2)")
         
         # Shuffle options
         random.shuffle(options)

@@ -5,6 +5,7 @@ from app.models.user import User
 from app.models.vocabulary import Vocabulary
 from app.models.vocabulary_meaning import VocabularyMeaning
 from app.models.vocabulary_context import VocabularyContext
+from app.models.vocabulary_audio import VocabularyAudio
 from app.models.review_history import ReviewHistory
 from app.models.ai_practice_log import AIPracticeLog
 from app.models.dictionary_cache import DictionaryCache
@@ -27,6 +28,7 @@ __all__ = [
     "Vocabulary",
     "VocabularyMeaning",
     "VocabularyContext",
+    "VocabularyAudio",
     "ReviewHistory",
     "AIPracticeLog",
     "DictionaryCache",
@@ -42,3 +44,4 @@ __all__ = [
     "QuestionType",
     "QuestionDifficulty",
 ]
+

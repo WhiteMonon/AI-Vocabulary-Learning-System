@@ -25,6 +25,8 @@ class QuestionResponse(BaseModel):
     question_text: str = Field(..., description="Nội dung câu hỏi")
     options: Optional[List[str]] = Field(None, description="Các lựa chọn (cho MCQ)")
     context_sentence: Optional[str] = Field(None, description="Câu ngữ cảnh (cho Fill Blank)")
+    audio_url: Optional[str] = Field(None, description="URL audio cho dictation")
+    word: Optional[str] = Field(None, description="Từ vựng chính (nếu cần hiển thị)")
     
     # Metadata
     confusion_pair_group: Optional[str] = Field(None, description="Nhóm confusion pair")

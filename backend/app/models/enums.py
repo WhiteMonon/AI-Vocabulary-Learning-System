@@ -59,9 +59,19 @@ class MeaningSource(str, Enum):
 
 class QuestionType(str, Enum):
     """Loại câu hỏi trong review session."""
-    MEANING_INPUT = "meaning_input"          # Hiện nghĩa → nhập từ (Content Word)
-    FILL_BLANK = "fill_blank"                # Điền từ vào chỗ trống (Function Word)
-    MULTIPLE_CHOICE = "multiple_choice"      # Chọn đáp án đúng (Function Word)
+    # Function Word types
+    FILL_BLANK = "fill_blank"                # Điền từ vào chỗ trống
+    MULTIPLE_CHOICE = "multiple_choice"      # Chọn đáp án đúng
+    
+    # Content Word types
+    WORD_FROM_MEANING = "word_from_meaning"  # Hiện nghĩa → nhập từ
+    MEANING_FROM_WORD = "meaning_from_word"  # Hiện từ → nhập nghĩa
+    DICTATION = "dictation"                  # Nghe audio → type từ
+    SYNONYM_ANTONYM_MCQ = "synonym_antonym_mcq"  # Chọn từ đồng nghĩa/trái nghĩa
+    DEFINITION_MCQ = "definition_mcq"        # Chọn definition đúng
+    
+    # Legacy (kept for backward compatibility)
+    MEANING_INPUT = "meaning_input"          # Alias cho WORD_FROM_MEANING
     ERROR_DETECTION = "error_detection"      # Tìm và sửa lỗi trong câu
 
 
