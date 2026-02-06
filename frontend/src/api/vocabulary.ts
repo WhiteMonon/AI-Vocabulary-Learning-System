@@ -47,8 +47,24 @@ export const deleteVocabulary = async (id: number): Promise<void> => {
     await apiClient.delete(`/api/v1/vocabulary/${id}`);
 };
 
+// Batch Review
+export interface VocabularyReviewItem {
+    vocabulary_id: number;
+    review_quality: number; // 0-3
+    time_spent_seconds: number;
+}
+
+export interface BatchReviewRequest {
+    items: VocabularyReviewItem[];
+}
+
 export const reviewVocabulary = async (id: number, review: VocabularyReview): Promise<Vocabulary> => {
     const { data } = await apiClient.post<Vocabulary>(`/api/v1/vocabulary/${id}/review`, review);
+    return data;
+};
+
+export const batchReviewVocabularies = async (batchData: BatchReviewRequest): Promise<VocabularyStats> => {
+    const { data } = await apiClient.post<VocabularyStats>('/api/v1/vocabulary/batch-review', batchData);
     return data;
 };
 

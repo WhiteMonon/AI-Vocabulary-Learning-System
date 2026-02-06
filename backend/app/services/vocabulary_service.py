@@ -854,7 +854,8 @@ class VocabularyService:
         quality = SRSReviewQuality(review_data.review_quality.value)
         new_srs_state = SRSEngine.update_after_review(
             current_state=current_srs_state,
-            review_quality=quality
+            review_quality=quality,
+            time_spent_seconds=review_data.time_spent_seconds
         )
         
         # Cập nhật lại model

@@ -176,35 +176,51 @@ class SRSEngine:
     def update_after_review(
         current_state: SRSState,
         review_quality: ReviewQuality,
-        review_time: datetime = None
+        review_time: datetime = None,
+        time_spent_seconds: int = 0
     ) -> SRSState:
         """
         Update SRS state sau khi review (core function).
         
         Implement hybrid SM-2 simplified algorithm:
-        1. Update easiness factor dựa trên quality
-        2. Update repetitions (reset nếu quality < GOOD)
-        3. Calculate new interval
-        4. Update next review date
+        1. Adjust quality based on response time (Speed Bonus/Penalty)
+        2. Update easiness factor dựa trên adjusted quality
+        3. Update repetitions (reset nếu quality < GOOD)
+        4. Calculate new interval
+        5. Update next review date
+        
+        Response Time Logic:
+        - Fast (< 5s) & Correct: Bonus (GOOD -> EASY)
+        - Slow (> 15s) & Correct: Penalty (EASY -> GOOD, GOOD -> HARD)
         
         Args:
             current_state: SRS state hiện tại
             review_quality: Chất lượng review (0-3)
             review_time: Thời điểm review (default: now)
+            time_spent_seconds: Thời gian trả lời (giây)
             
         Returns:
             SRS state mới sau khi update
-            
-        Examples:
-            >>> state = SRSState()
-            >>> new_state = SRSEngine.update_after_review(state, ReviewQuality.GOOD)
-            >>> new_state.repetitions
-            1
-            >>> new_state.interval
-            1
         """
         if review_time is None:
             review_time = datetime.utcnow()
+            
+        # --- Speed Adjustment ---
+        adjusted_quality = review_quality
+        
+        # Chỉ adjust nếu trả lời đúng (GOOD/EASY)
+        if review_quality >= ReviewQuality.GOOD:
+            if time_spent_seconds > 0: # Valid time
+                if time_spent_seconds < 5:
+                    # Siêu nhanh: Bonus GOOD -> EASY
+                    if review_quality == ReviewQuality.GOOD:
+                        adjusted_quality = ReviewQuality.EASY
+                elif time_spent_seconds > 15:
+                    # Chậm: Penalty
+                    if review_quality == ReviewQuality.EASY:
+                        adjusted_quality = ReviewQuality.GOOD
+                    elif review_quality == ReviewQuality.GOOD:
+                        adjusted_quality = ReviewQuality.HARD
         
         # Create new state (immutable pattern)
         new_state = SRSState(
@@ -215,14 +231,14 @@ class SRSEngine:
             last_review_date=review_time
         )
         
-        # Step 1: Update easiness factor
+        # Step 1: Update easiness factor (use adjusted_quality)
         new_state.easiness_factor = SRSEngine._calculate_new_easiness_factor(
             current_ef=current_state.easiness_factor,
-            quality=review_quality
+            quality=adjusted_quality
         )
         
         # Step 2: Update repetitions
-        if review_quality.value < ReviewQuality.GOOD:
+        if adjusted_quality.value < ReviewQuality.GOOD:
             # Reset nếu quality < GOOD (AGAIN hoặc HARD)
             new_state.repetitions = 0
         else:
@@ -234,7 +250,7 @@ class SRSEngine:
             current_interval=current_state.interval,
             repetitions=new_state.repetitions,
             easiness_factor=new_state.easiness_factor,
-            quality=review_quality
+            quality=adjusted_quality
         )
         
         # Step 4: Update next review date
@@ -256,8 +272,8 @@ class SRSEngine:
         Simplified:
             - AGAIN (0): EF -= 0.2
             - HARD (1): EF -= 0.15
-            - GOOD (2): EF không đổi hoặc tăng nhẹ
-            - EASY (3): EF += 0.1
+            - GOOD (2): EF không đổi (0)
+            - EASY (3): EF += 0.15 (Modified: Slightly higher reward for Easy)
         
         Args:
             current_ef: Easiness factor hiện tại
@@ -281,7 +297,7 @@ class SRSEngine:
         elif q == 2:
             new_ef = current_ef
         else:  # q == 3 (EASY)
-            new_ef = current_ef + 0.1
+            new_ef = current_ef + 0.15  # Tăng bonus cho Easy lên 0.15
         
         # Clamp to valid range
         new_ef = max(SRSEngine.MIN_EASINESS_FACTOR, new_ef)

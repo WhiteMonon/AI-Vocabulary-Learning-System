@@ -83,11 +83,16 @@ const ReviewResults: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold mb-2">Kết quả ôn tập</h1>
-                            <p className="text-indigo-100">Xem lại những từ bạn đã ôn tập trong phiên vừa rồi</p>
+                            <p className="text-indigo-100">Bạn đã hoàn thành phiên ôn tập xuất sắc!</p>
                         </div>
-                        <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-xl">
-                            <Clock className="w-5 h-5" />
-                            <span className="font-medium">{formatTime(totalTime)}</span>
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-xl">
+                                <Clock className="w-5 h-5" />
+                                <span className="font-medium">{formatTime(totalTime)}</span>
+                            </div>
+                            <div className="px-4 py-1 bg-yellow-400 text-yellow-900 rounded-lg font-bold text-sm shadow-sm">
+                                Score: {location.state?.score || 0}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -122,12 +127,34 @@ const ReviewResults: React.FC = () => {
                 </div>
             </div>
 
+            {/* Weak Words Section (Only if there are incorrect answers) */}
+            {incorrectCount > 0 && (
+                <div className="mb-8">
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <span className="text-2xl">💪</span> Cần ôn tập thêm
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {results.filter(r => !r.isCorrect).map(r => (
+                            <div key={r.id} className="bg-red-50 border border-red-100 p-4 rounded-xl flex justify-between items-center">
+                                <div>
+                                    <div className="font-bold text-gray-800 text-lg">{r.word}</div>
+                                    <div className="text-sm text-gray-600">{r.definition}</div>
+                                </div>
+                                <button className="text-xs bg-white text-red-600 px-3 py-1 rounded-lg border border-red-200 font-bold uppercase">
+                                    Review
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Filter */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 text-gray-600">
                         <Filter className="w-5 h-5" />
-                        <span className="font-medium">Lọc:</span>
+                        <span className="font-medium">Chi tiết:</span>
                     </div>
                     <div className="flex gap-2">
                         <button
@@ -137,27 +164,25 @@ const ReviewResults: React.FC = () => {
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
-                            Tất cả ({totalQuestions})
+                            Tất cả
                         </button>
                         <button
                             onClick={() => setFilter('correct')}
-                            className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${filter === 'correct'
+                            className={`px-4 py-2 rounded-xl font-medium transition-all ${filter === 'correct'
                                 ? 'bg-green-600 text-white'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
-                            <CheckCircle className="w-4 h-4" />
-                            Đúng ({correctCount})
+                            Đúng
                         </button>
                         <button
                             onClick={() => setFilter('incorrect')}
-                            className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${filter === 'incorrect'
+                            className={`px-4 py-2 rounded-xl font-medium transition-all ${filter === 'incorrect'
                                 ? 'bg-red-600 text-white'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
-                            <XCircle className="w-4 h-4" />
-                            Sai ({incorrectCount})
+                            Sai
                         </button>
                     </div>
                 </div>

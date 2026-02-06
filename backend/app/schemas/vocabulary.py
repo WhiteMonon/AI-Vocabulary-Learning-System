@@ -80,6 +80,18 @@ class VocabularyReview(BaseModel):
     )
 
 
+class VocabularyReviewItem(BaseModel):
+    """Item trong batch review request."""
+    vocabulary_id: int
+    review_quality: ReviewQuality
+    time_spent_seconds: int = Field(default=0, ge=0)
+
+
+class BatchReviewRequest(BaseModel):
+    """Schema cho batch review."""
+    items: List[VocabularyReviewItem]
+
+
 # ============= Import/Export Schemas =============
 
 class VocabularyImportRequest(BaseModel):

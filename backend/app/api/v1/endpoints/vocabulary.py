@@ -21,12 +21,48 @@ from app.schemas.vocabulary import (
     MeaningCreate,
     MeaningResponse,
     VocabularyImportRequest,
-    ImportResultResponse
+    ImportResultResponse,
+    BatchReviewRequest,
+    VocabularyReviewItem
 )
 from app.schemas.quiz import QuizSessionResponse, QuizSubmit
 from app.services.vocabulary_service import VocabularyService
 
 router = APIRouter()
+
+
+@router.post("/batch-review", response_model=VocabularyStatsResponse)
+def batch_review_vocabularies(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+    batch_in: BatchReviewRequest
+):
+    """
+    Submit review cho nhiều từ vựng cùng lúc (Batch Review).
+    
+    Xử lý tuần tự từng item và cập nhật SRS.
+    Trả về thống kê mới nhất của user.
+    """
+    service = VocabularyService(db)
+    
+    processed_count = 0
+    for item in batch_in.items:
+        review_data = VocabularyReview(
+            review_quality=item.review_quality,
+            time_spent_seconds=item.time_spent_seconds
+        )
+        
+        # Reuse existing update logic (handles history recording + SRS algo)
+        service.update_learning_status(
+            vocab_id=item.vocabulary_id,
+            user_id=current_user.id,
+            review_data=review_data
+        )
+        processed_count += 1
+        
+    # Return updated stats
+    return service.get_vocab_stats(user_id=current_user.id)
 
 
 # ============= Import/Export Endpoints =============
