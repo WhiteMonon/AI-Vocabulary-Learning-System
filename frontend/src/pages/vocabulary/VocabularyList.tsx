@@ -6,13 +6,12 @@ import {
     Edit,
     Trash2,
     Filter,
-    ChevronLeft,
-    ChevronRight,
     Loader2,
     BookOpen,
     Upload // Add Upload icon
 } from 'lucide-react';
 import { useVocabularies, useDeleteVocabulary } from '../../hooks/useVocabulary';
+import SmartPagination from '../../components/common/SmartPagination';
 
 const VocabularyList: React.FC = () => {
     const [filters, setFilters] = useState({
@@ -192,39 +191,34 @@ const VocabularyList: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Pagination */}
-                    {data && data.total_pages > 1 && (
-                        <div className="flex items-center justify-between mt-6">
-                            <p className="text-sm text-gray-600">
-                                Hiển thị <span className="font-medium">{((filters.page - 1) * filters.page_size) + 1}</span> đến <span className="font-medium">{Math.min(filters.page * filters.page_size, data.total)}</span> trong <span className="font-medium">{data.total}</span> từ vựng
-                            </p>
-                            <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={() => handlePageChange(filters.page - 1)}
-                                    disabled={filters.page === 1}
-                                    className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    {/* Pagination and Footer Controls */}
+                    {data && (
+                        <div className="flex flex-col md:flex-row items-center justify-between mt-6 gap-4 border-t border-gray-100 pt-6">
+                            <div className="flex items-center text-sm text-gray-600 gap-2 order-2 md:order-1">
+                                <span>Hiển thị</span>
+                                <select
+                                    value={filters.page_size}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, page_size: Number(e.target.value), page: 1 }))}
+                                    className="border border-gray-200 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium text-gray-900"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
-                                </button>
-                                {[...Array(data.total_pages)].map((_, i) => (
-                                    <button
-                                        key={i + 1}
-                                        onClick={() => handlePageChange(i + 1)}
-                                        className={`w-10 h-10 rounded-lg font-medium transition-all ${filters.page === i + 1
-                                            ? 'bg-indigo-600 text-white shadow-md'
-                                            : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        {i + 1}
-                                    </button>
-                                ))}
-                                <button
-                                    onClick={() => handlePageChange(filters.page + 1)}
-                                    disabled={filters.page === data.total_pages}
-                                    className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                                >
-                                    <ChevronRight className="w-5 h-5" />
-                                </button>
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                                <span>/ trang</span>
+                                <span className="hidden sm:inline px-2 text-gray-300">|</span>
+                                <span className="hidden sm:inline">
+                                    Tổng <span className="font-medium text-gray-900">{data.total}</span> từ vựng
+                                </span>
+                            </div>
+
+                            <div className="order-1 md:order-2">
+                                <SmartPagination
+                                    currentPage={filters.page}
+                                    totalPages={data.total_pages}
+                                    onPageChange={handlePageChange}
+                                />
                             </div>
                         </div>
                     )}
