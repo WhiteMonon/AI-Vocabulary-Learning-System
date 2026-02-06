@@ -76,6 +76,7 @@ class ImportResult:
     failed_auto_meaning: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
+    created_vocab_ids: List[int] = field(default_factory=list)  # Track vocab IDs for background tasks
 
 
 class VocabularyService:
@@ -174,11 +175,21 @@ class VocabularyService:
                 meaning = VocabularyMeaning(
                     vocabulary_id=vocab.id,
                     definition=meaning_data.definition,
-                    example_sentence=meaning_data.example_sentence,
                     meaning_source=MeaningSource.MANUAL,
                     is_auto_generated=False
                 )
                 self.session.add(meaning)
+                
+                # Lưu example_sentence nếu có và chuyển nó vào VocabularyContext
+                # Thay vì làm ô nhiễm VocabularyMeaning
+                if hasattr(meaning_data, 'example_sentence') and meaning_data.example_sentence:
+                    from app.models.vocabulary_context import VocabularyContext
+                    context = VocabularyContext(
+                        vocabulary_id=vocab.id,
+                        sentence=meaning_data.example_sentence,
+                        ai_provider="import" if is_manual else "manual"
+                    )
+                    self.session.add(context)
             
             self.session.commit()
             self.session.refresh(vocab)
@@ -225,7 +236,6 @@ class VocabularyService:
         meaning = VocabularyMeaning(
             vocabulary_id=vocab_id,
             definition=meaning_data.definition,
-            example_sentence=meaning_data.example_sentence,
             meaning_source=source,
             is_auto_generated=is_auto
         )
@@ -299,11 +309,14 @@ class VocabularyService:
         return True
 
     def get_vocab(self, vocab_id: int, user_id: int) -> Optional[Vocabulary]:
-        """Lấy thông tin chi tiết một vocabulary với meanings."""
+        """Lấy thông tin chi tiết một vocabulary với meanings và contexts."""
         query = select(Vocabulary).where(
             Vocabulary.id == vocab_id,
             Vocabulary.user_id == user_id
-        ).options(selectinload(Vocabulary.meanings))
+        ).options(
+            selectinload(Vocabulary.meanings),
+            selectinload(Vocabulary.contexts)
+        )
         
         return self.session.exec(query).first()
     
@@ -319,10 +332,13 @@ class VocabularyService:
         """
         Lấy danh sách vocabularies của user với filters.
         """
-        # Base query với eager loading meanings
+        # Base query với eager loading meanings và contexts
         query = select(Vocabulary).where(
             Vocabulary.user_id == user_id
-        ).options(selectinload(Vocabulary.meanings))
+        ).options(
+            selectinload(Vocabulary.meanings),
+            selectinload(Vocabulary.contexts)
+        )
         
         # Apply filters
         if word_type:
@@ -357,12 +373,15 @@ class VocabularyService:
         return vocabularies, total
     
     def get_vocab_by_word(self, user_id: int, word: str) -> Optional[Vocabulary]:
-        """Tìm vocabulary theo word (normalized)."""
+        """Tìm vocabulary theo word (normalized) với meanings và contexts."""
         normalized = self.normalize_word(word)
         query = select(Vocabulary).where(
             Vocabulary.user_id == user_id,
             Vocabulary.word == normalized
-        ).options(selectinload(Vocabulary.meanings))
+        ).options(
+            selectinload(Vocabulary.meanings),
+            selectinload(Vocabulary.contexts)
+        )
         
         return self.session.exec(query).first()
     
@@ -410,11 +429,9 @@ class VocabularyService:
                     continue
                 
                 definition = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
-                example = parts[2].strip() if len(parts) > 2 and parts[2].strip() else None
                 
                 # Xác định definition
                 final_definition = None
-                final_example = example
                 meaning_source = MeaningSource.MANUAL
                 is_auto = False
                 
@@ -435,22 +452,16 @@ class VocabularyService:
                         is_auto = True
                         result.auto_generated_count += 1
                 
-                # Dịch example nếu có
-                if example:
-                    translated_example = await self.dictionary_service.translate_text(example)
-                    if translated_example:
-                        final_example = translated_example
-                
                 # Nếu không có definition
                 if not final_definition:
                     result.failed_auto_meaning.append(word)
                     result.warnings.append(f"Line {line_num}: No definition for '{word}'")
-                    self._create_or_merge_vocab(user_id, word, None, None, result)
+                    self._create_or_merge_vocab(user_id, word, None, result)
                     continue
                 
                 # Tạo hoặc merge vocabulary
                 self._create_or_merge_vocab(
-                    user_id, word, final_definition, final_example,
+                    user_id, word, final_definition,
                     result, meaning_source, is_auto
                 )
                 
@@ -538,11 +549,9 @@ class VocabularyService:
                     continue
                 
                 definition = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
-                example = parts[2].strip() if len(parts) > 2 and parts[2].strip() else None
                 
                 # Xác định definition
                 final_definition = None
-                final_example = example
                 meaning_source = MeaningSource.MANUAL
                 is_auto = False
                 
@@ -563,17 +572,11 @@ class VocabularyService:
                         is_auto = True
                         result.auto_generated_count += 1
                 
-                # Dịch example nếu có
-                if example:
-                    translated_example = await self.dictionary_service.translate_text(example)
-                    if translated_example:
-                        final_example = translated_example
-                
                 # Nếu không có definition
                 if not final_definition:
                     result.failed_auto_meaning.append(word)
                     result.warnings.append(f"Line {line_num}: No definition for '{word}'")
-                    self._create_or_merge_vocab(user_id, word, None, None, result)
+                    self._create_or_merge_vocab(user_id, word, None, result)
                     
                     yield {
                         "type": "item_processed",
@@ -586,7 +589,7 @@ class VocabularyService:
                 else:
                     # Tạo hoặc merge vocabulary
                     self._create_or_merge_vocab(
-                        user_id, word, final_definition, final_example,
+                        user_id, word, final_definition,
                         result, meaning_source, is_auto
                     )
                     
@@ -595,7 +598,8 @@ class VocabularyService:
                         "data": {
                             "word": word,
                             "status": "success",
-                            "message": f"Added: {final_definition[:50]}..."
+                            "message": f"Added: {final_definition[:50]}...",
+                            "vocab_id": result.created_vocab_ids[-1] if result.created_vocab_ids else None
                         }
                     }
                 
@@ -661,7 +665,6 @@ class VocabularyService:
         user_id: int,
         word: str,
         definition: Optional[str],
-        example: Optional[str],
         result: ImportResult,
         source: MeaningSource = MeaningSource.MANUAL,
         is_auto: bool = False
@@ -677,12 +680,16 @@ class VocabularyService:
                     meaning = VocabularyMeaning(
                         vocabulary_id=existing.id,
                         definition=definition,
-                        example_sentence=example,
                         meaning_source=source,
                         is_auto_generated=is_auto
                     )
                     self.session.add(meaning)
                     result.merged_meanings += 1
+            
+            # Track ID for background tasks
+            if existing.id not in result.created_vocab_ids:
+                result.created_vocab_ids.append(existing.id)
+                
         else:
             # Create new vocabulary
             word_type, is_manual = self.classify_word(word)
@@ -704,13 +711,13 @@ class VocabularyService:
                 meaning = VocabularyMeaning(
                     vocabulary_id=vocab.id,
                     definition=definition,
-                    example_sentence=example,
                     meaning_source=source,
                     is_auto_generated=is_auto
                 )
                 self.session.add(meaning)
             
             result.new_words += 1
+            result.created_vocab_ids.append(vocab.id)
     
     def export_vocabularies(
         self,
@@ -761,7 +768,6 @@ class VocabularyService:
                 "meanings": [
                     {
                         "definition": m.definition,
-                        "example_sentence": m.example_sentence,
                         "source": m.meaning_source.value
                     }
                     for m in vocab.meanings
@@ -786,8 +792,6 @@ class VocabularyService:
         for vocab in vocabularies:
             for meaning in vocab.meanings:
                 parts = [vocab.word, meaning.definition]
-                if meaning.example_sentence:
-                    parts.append(meaning.example_sentence)
                 lines.append("|".join(parts))
         
         return "\n".join(lines)
@@ -810,7 +814,7 @@ class VocabularyService:
                     vocab.word,
                     vocab.word_type.value,
                     meaning.definition,
-                    meaning.example_sentence or "",
+                    "", # example_sentence legacy placeholder
                     meaning.meaning_source.value,
                     vocab.easiness_factor,
                     vocab.interval,

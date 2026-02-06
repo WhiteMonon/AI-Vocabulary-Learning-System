@@ -9,27 +9,37 @@ from app.models.enums import PracticeType
 from app.core.config import settings
 from app.core.logging import get_logger
 
+from app.ai.utils import strip_reasoning
+
 logger = get_logger(__name__)
 
 class GroqProvider(AIProvider):
     def __init__(self, api_key: str = settings.GROQ_API_KEY):
         self.client = AsyncGroq(api_key=api_key)
-        self.model = "qwen/qwen3-32b"
+        # Đổi sang llama-3.3-70b-versatile để tránh vấn đề <think> tags
+        self.model = "llama-3.3-70b-versatile"
+        # System prompt cải thiện
+        self.system_prompt = """You are a helpful language teacher.
+IMPORTANT: Return ONLY valid JSON. Do NOT use <think> tags or reasoning blocks.
+Respond directly with the requested JSON format."""
 
     async def generate_question(
         self, 
         vocab: Vocabulary, 
         practice_type: PracticeType = PracticeType.MULTIPLE_CHOICE
     ) -> AIQuestion:
+        # Lấy definition đầu tiên để gửi cho AI
+        definition = vocab.meanings[0].definition if vocab.meanings else ""
+        
         if practice_type == PracticeType.MULTIPLE_CHOICE:
             prompt = prompts.MULTIPLE_CHOICE_GEN.format(
                 word=vocab.word, 
-                definition=vocab.definition
+                definition=definition
             )
         elif practice_type == PracticeType.FILL_BLANK:
             prompt = prompts.FILL_BLANK_GEN.format(
                 word=vocab.word, 
-                definition=vocab.definition
+                definition=definition
             )
         else:
             prompt = f"Tạo câu hỏi {practice_type.value} cho từ {vocab.word}"
@@ -37,7 +47,7 @@ class GroqProvider(AIProvider):
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "system", "content": "You are a helpful language teacher."},
+                messages=[{"role": "system", "content": self.system_prompt},
                           {"role": "user", "content": prompt}],
                 response_format={"type": "json_object"}
             )
@@ -57,7 +67,7 @@ class GroqProvider(AIProvider):
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "system", "content": "You are a helpful language teacher."},
+                messages=[{"role": "system", "content": self.system_prompt},
                           {"role": "user", "content": prompt}],
                 response_format={"type": "json_object"}
             )
@@ -95,3 +105,23 @@ class GroqProvider(AIProvider):
         except Exception as e:
             logger.error(f"Groq chat_stream error: {str(e)}")
             yield f"Error: {str(e)}"
+    
+    async def generate_sentence(self, prompt: str) -> str:
+        """
+        Generate example sentence using Groq.
+        """
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=50
+            )
+            content = response.choices[0].message.content.strip()
+            return strip_reasoning(content)
+        except Exception as e:
+            logger.error(f"Groq generate_sentence error: {str(e)}")
+            raise

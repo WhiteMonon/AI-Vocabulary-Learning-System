@@ -1,30 +1,44 @@
 """
 Models module - SQLModel models cho vocabulary learning system.
 """
-from app.models.enums import (
-    UserRole, DifficultyLevel, ReviewQuality, PracticeType,
-    WordType, MeaningSource
-)
 from app.models.user import User
 from app.models.vocabulary import Vocabulary
 from app.models.vocabulary_meaning import VocabularyMeaning
-from app.models.dictionary_cache import DictionaryCache
+from app.models.vocabulary_context import VocabularyContext
 from app.models.review_history import ReviewHistory
 from app.models.ai_practice_log import AIPracticeLog
+from app.models.dictionary_cache import DictionaryCache
+from app.models.review_session import ReviewSession
+from app.models.generated_question import GeneratedQuestion
+from app.models.enums import (
+    UserRole,
+    DifficultyLevel,
+    ReviewQuality,
+    PracticeType,
+    AIProviderName,
+    WordType,
+    MeaningSource,
+    QuestionType,
+    QuestionDifficulty,
+)
 
 __all__ = [
-    # Enums
+    "User",
+    "Vocabulary",
+    "VocabularyMeaning",
+    "VocabularyContext",
+    "ReviewHistory",
+    "AIPracticeLog",
+    "DictionaryCache",
+    "ReviewSession",
+    "GeneratedQuestion",
     "UserRole",
     "DifficultyLevel",
     "ReviewQuality",
     "PracticeType",
+    "AIProviderName",
     "WordType",
     "MeaningSource",
-    # Models
-    "User",
-    "Vocabulary",
-    "VocabularyMeaning",
-    "DictionaryCache",
-    "ReviewHistory",
-    "AIPracticeLog",
+    "QuestionType",
+    "QuestionDifficulty",
 ]

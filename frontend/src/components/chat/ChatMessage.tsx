@@ -11,9 +11,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
     const isAI = message.role === 'assistant';
 
     // Filter out <think> blocks for a cleaner display
-    const displayContent = message.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    // Handle both closed tags and unclosed tags (during streaming)
+    let displayContent = message.content.replace(/<think>[\s\S]*?<\/think>/g, '');
+    if (displayContent.includes('<think>')) {
+        displayContent = displayContent.split('<think>')[0];
+    }
+    displayContent = displayContent.trim();
 
-    // Extract and potentially show thinking in a subtle way (optional, but requested to fix "ugly text")
+    // Extract and potentially show thinking in a subtle way
     const isThinking = message.content.includes('<think>') && !message.content.includes('</think>');
 
     if (!displayContent && !isThinking) return null;
@@ -31,8 +36,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                 <div className="flex flex-col">
                     <div
                         className={`rounded-2xl px-5 py-3 ${isAI
-                                ? 'bg-transparent text-gray-800'
-                                : 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
+                            ? 'bg-transparent text-gray-800'
+                            : 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
                             }`}
                     >
                         <div className={`prose prose-sm max-w-none ${isAI ? 'text-gray-800' : 'text-white'}`}>

@@ -14,7 +14,8 @@ from app.models.enums import WordType, MeaningSource, ReviewQuality
 class MeaningCreate(BaseModel):
     """Schema để tạo meaning mới."""
     definition: str = Field(..., min_length=1, description="Định nghĩa của từ")
-    example_sentence: Optional[str] = Field(None, description="Câu ví dụ sử dụng từ")
+    example_sentence: Optional[str] = Field(None, description="Câu ví dụ thực tế (optional)")
+
     
     @field_validator('definition')
     @classmethod
@@ -29,11 +30,22 @@ class MeaningResponse(BaseModel):
     """Schema cho meaning response."""
     id: int
     definition: str
-    example_sentence: Optional[str]
     meaning_source: MeaningSource
     is_auto_generated: bool
     created_at: datetime
     updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class ContextResponse(BaseModel):
+    """Schema cho vocabulary context response."""
+    id: int
+    sentence: str
+    translation: Optional[str]
+    ai_provider: str
+    created_at: datetime
     
     class Config:
         from_attributes = True
@@ -109,6 +121,7 @@ class ImportResultResponse(BaseModel):
     failed_auto_meaning: List[str]
     warnings: List[str]
     errors: List[str]
+    created_vocab_ids: List[int] = []
 
 
 class ExportFormat(BaseModel):
@@ -126,6 +139,7 @@ class VocabularyResponse(BaseModel):
     word_type: WordType
     is_word_type_manual: bool
     meanings: List[MeaningResponse]
+    contexts: List[ContextResponse] = []
     
     # SRS fields
     easiness_factor: float

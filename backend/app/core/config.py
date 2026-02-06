@@ -33,11 +33,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "*"
     
     # AI Provider API Keys
-    OPENAI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
-    GEMINI_API_KEY: str = ""
-    HF_API_KEY: str = ""
-    DEFAULT_AI_PROVIDER: str = "openai"
+    DEFAULT_AI_PROVIDER: str = "groq"
     
     # Redis (optional)
     REDIS_HOST: str = "redis"

@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from app.models.vocabulary import Vocabulary
     from app.models.review_history import ReviewHistory
     from app.models.ai_practice_log import AIPracticeLog
+    from app.models.review_session import ReviewSession
+    from app.models.generated_question import GeneratedQuestion
 
 
 class User(BaseModel, table=True):
@@ -73,6 +75,14 @@ class User(BaseModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     ai_practice_logs: List["AIPracticeLog"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    review_sessions: List["ReviewSession"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    generated_questions: List["GeneratedQuestion"] = Relationship(
         back_populates="user",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

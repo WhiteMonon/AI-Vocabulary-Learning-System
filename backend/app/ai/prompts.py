@@ -70,3 +70,21 @@ Yêu cầu trả về định dạng JSON:
     "usage_note": "Lưu ý đặc biệt khi sử dụng từ này."
 }}
 """
+
+EXAMPLE_SENTENCE_GEN = """
+Generate a natural, simple English example sentence using the word "{word}".
+
+Word: {word}
+Definition: {definition}
+Word Type: {word_type}
+
+Requirements:
+- The sentence MUST contain the exact word "{word}"
+- Keep it simple and natural (10-15 words maximum)
+- Suitable for English learners
+- Use common, everyday context
+- Return ONLY the sentence, no explanation or quotation marks
+- DO NOT include reasoning blocks or <think> tags in your response
+
+Example sentence:
+"""

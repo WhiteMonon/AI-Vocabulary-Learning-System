@@ -32,10 +32,6 @@ class VocabularyMeaning(BaseModel, table=True):
         sa_column=Column(String, nullable=False),
         description="Định nghĩa của từ"
     )
-    example_sentence: Optional[str] = Field(
-        default=None,
-        description="Câu ví dụ sử dụng từ"
-    )
     
     # Auto Meaning Generation tracking
     meaning_source: MeaningSource = Field(

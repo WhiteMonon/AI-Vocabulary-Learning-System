@@ -41,10 +41,7 @@ class PracticeType(str, Enum):
 
 class AIProviderName(str, Enum):
     """Tên các AI providers được hỗ trợ."""
-    OPENAI = "openai"
     GROQ = "groq"
-    GEMINI = "gemini"
-    LOCAL_HF = "local"
 
 
 class WordType(str, Enum):
@@ -58,3 +55,18 @@ class MeaningSource(str, Enum):
     MANUAL = "manual"                  # User nhập trực tiếp
     DICTIONARY_API = "dictionary_api"  # Từ Free Dictionary API
     AUTO_TRANSLATE = "auto_translate"  # Từ LibreTranslate fallback
+
+
+class QuestionType(str, Enum):
+    """Loại câu hỏi trong review session."""
+    MEANING_INPUT = "meaning_input"          # Hiện nghĩa → nhập từ (Content Word)
+    FILL_BLANK = "fill_blank"                # Điền từ vào chỗ trống (Function Word)
+    MULTIPLE_CHOICE = "multiple_choice"      # Chọn đáp án đúng (Function Word)
+    ERROR_DETECTION = "error_detection"      # Tìm và sửa lỗi trong câu
+
+
+class QuestionDifficulty(str, Enum):
+    """Mức độ khó của câu hỏi."""
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"

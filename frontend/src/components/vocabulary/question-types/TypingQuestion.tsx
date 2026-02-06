@@ -1,20 +1,19 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface TypingQuestionProps {
-    word: string; // The word to type (needed for validation logic if moved here, but currently just for display if needed)
-    userAnswer: string;
-    setUserAnswer: (value: string) => void;
     onSubmit: (answer: string) => void;
+    onAnswerChange?: (changeCount: number) => void;
     disabled?: boolean;
 }
 
 const TypingQuestion: React.FC<TypingQuestionProps> = ({
-    userAnswer,
-    setUserAnswer,
     onSubmit,
+    onAnswerChange,
     disabled = false
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
+    const [answer, setAnswer] = useState('');
+    const [changeCount, setChangeCount] = useState(0);
 
     useEffect(() => {
         if (!disabled && inputRef.current) {
@@ -22,17 +21,29 @@ const TypingQuestion: React.FC<TypingQuestionProps> = ({
         }
     }, [disabled]);
 
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = e.target.value;
+        setAnswer(newValue);
+
+        // Track change count
+        const newChangeCount = changeCount + 1;
+        setChangeCount(newChangeCount);
+        if (onAnswerChange) {
+            onAnswerChange(newChangeCount);
+        }
+    };
+
     return (
         <div className="w-full max-w-lg mx-auto space-y-6">
             <div className="relative">
                 <input
                     ref={inputRef}
                     type="text"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
+                    value={answer}
+                    onChange={handleChange}
                     onKeyDown={(e) => {
-                        if (e.key === 'Enter' && userAnswer.trim()) {
-                            onSubmit(userAnswer);
+                        if (e.key === 'Enter' && answer.trim()) {
+                            onSubmit(answer.trim());
                         }
                     }}
                     placeholder="Nhập từ vựng..."
@@ -44,8 +55,8 @@ const TypingQuestion: React.FC<TypingQuestionProps> = ({
             </div>
 
             <button
-                onClick={() => onSubmit(userAnswer)}
-                disabled={disabled || !userAnswer.trim()}
+                onClick={() => onSubmit(answer.trim())}
+                disabled={disabled || !answer.trim()}
                 className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100"
             >
                 Kiểm tra

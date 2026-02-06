@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from app.models.review_history import ReviewHistory
     from app.models.ai_practice_log import AIPracticeLog
     from app.models.vocabulary_meaning import VocabularyMeaning
+    from app.models.generated_question import GeneratedQuestion
+    from app.models.vocabulary_context import VocabularyContext
 
 
 class Vocabulary(BaseModel, table=True):
@@ -69,6 +71,11 @@ class Vocabulary(BaseModel, table=True):
         default_factory=datetime.utcnow,
         description="Ngày review tiếp theo"
     )
+    last_review_date: Optional[datetime] = Field(
+        sa_column=Column(DateTime, nullable=True),
+        default=None,
+        description="Ngày review lần cuối"
+    )
     
     # Relationships
     user: "User" = Relationship(back_populates="vocabularies")
@@ -81,6 +88,14 @@ class Vocabulary(BaseModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     ai_practice_logs: List["AIPracticeLog"] = Relationship(
+        back_populates="vocabulary",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    generated_questions: List["GeneratedQuestion"] = Relationship(
+        back_populates="vocabulary",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    contexts: List["VocabularyContext"] = Relationship(
         back_populates="vocabulary",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

@@ -4,7 +4,7 @@ Updated để hỗ trợ multiple meanings và import/export.
 """
 import json
 from typing import Optional, Literal
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, BackgroundTasks
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlmodel import Session
 
@@ -72,7 +72,8 @@ async def import_vocabularies(
     *,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
-    import_data: VocabularyImportRequest
+    import_data: VocabularyImportRequest,
+    background_tasks: BackgroundTasks
 ):
     """
     Import từ vựng từ nội dung TXT.
@@ -89,6 +90,11 @@ async def import_vocabularies(
         auto_fetch_meaning=import_data.auto_fetch_meaning
     )
     
+    # Trigger background tasks cho tất cả vocab mới/merged
+    from app.services.tasks import generate_example_sentence_task
+    for vocab_id in result.created_vocab_ids:
+        background_tasks.add_task(generate_example_sentence_task, vocab_id)
+    
     return ImportResultResponse(
         total_processed=result.total_processed,
         new_words=result.new_words,
@@ -96,7 +102,8 @@ async def import_vocabularies(
         auto_generated_count=result.auto_generated_count,
         failed_auto_meaning=result.failed_auto_meaning,
         warnings=result.warnings,
-        errors=result.errors
+        errors=result.errors,
+        created_vocab_ids=result.created_vocab_ids
     )
 
 
@@ -104,7 +111,8 @@ async def import_vocabularies(
 async def import_vocabularies_stream(
     *,
     current_user: User = Depends(deps.get_current_user),
-    import_data: VocabularyImportRequest
+    import_data: VocabularyImportRequest,
+    background_tasks: BackgroundTasks
 ):
     """
     Import từ vựng với streaming progress updates (SSE).
@@ -113,7 +121,7 @@ async def import_vocabularies_stream(
     
     Events:
     - progress: {"type": "progress", "data": {"current": N, "total": M, "percent": X}}
-    - item_processed: {"type": "item_processed", "data": {"word": "...", "status": "success|failed|warning", "message": "..."}}
+    - item_processed: {"type": "item_processed", "data": {"word": "...", "status": "success|failed|warning", "message": "...", "vocab_id": ID}}
     - completed: {"type": "completed", "data": ImportResult}
     """
     # Lưu user_id trước khi vào generator (tránh detached session)
@@ -125,6 +133,7 @@ async def import_vocabularies_stream(
         """Generator để format events cho SSE với session riêng."""
         from app.db.session import engine
         from sqlmodel import Session
+        from app.services.tasks import generate_example_sentence_task
         
         # Tạo session mới trong generator
         db = Session(engine)
@@ -136,6 +145,12 @@ async def import_vocabularies_stream(
                 content=content,
                 auto_fetch_meaning=auto_fetch
             ):
+                # Nếu xử lý xong một item thành công, trigger background task
+                if event.get("type") == "item_processed" and event.get("data", {}).get("status") == "success":
+                    vocab_id = event["data"].get("vocab_id")
+                    if vocab_id:
+                        background_tasks.add_task(generate_example_sentence_task, vocab_id)
+
                 # Format SSE event
                 event_type = event.get("type", "message")
                 event_data = json.dumps(event.get("data", {}), ensure_ascii=False)
@@ -210,21 +225,29 @@ def export_vocabularies(
 # ============= CRUD Endpoints =============
 
 @router.post("/", response_model=VocabularyResponse, status_code=status.HTTP_201_CREATED)
-def create_vocabulary(
+async def create_vocabulary(
     *,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
-    vocab_in: VocabularyCreate
+    vocab_in: VocabularyCreate,
+    background_tasks: BackgroundTasks
 ):
     """
     Tạo một từ vựng mới cho người dùng hiện tại.
     
     Word sẽ được tự động normalize (lowercase, trim).
     Word type sẽ được tự động classify nếu không chỉ định.
+    Example sentence sẽ được AI generate trong background.
     """
     service = VocabularyService(db)
     try:
-        return service.create_vocab(user_id=current_user.id, vocab_data=vocab_in)
+        vocab = service.create_vocab(user_id=current_user.id, vocab_data=vocab_in)
+        
+        # Trigger background task để generate example sentence
+        from app.services.tasks import generate_example_sentence_task
+        background_tasks.add_task(generate_example_sentence_task, vocab.id)
+        
+        return vocab
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

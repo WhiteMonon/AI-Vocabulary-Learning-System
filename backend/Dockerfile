@@ -42,6 +42,10 @@ RUN useradd -m -u 1000 appuser && \
     mkdir -p /app/logs && \
     chown -R appuser:appuser /app/logs
 
+# Set permissions for scripts
+RUN sed -i 's/\r$//' scripts/run.sh && \
+    chmod +x scripts/run.sh
+
 # Switch to non-root user
 USER appuser
 
@@ -52,5 +56,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import http.client; c = http.client.HTTPConnection('localhost', 8000); c.request('GET', '/health'); r = c.getresponse(); exit(0 if r.status == 200 else 1)"
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application using the startup script
+CMD ["./scripts/run.sh"]

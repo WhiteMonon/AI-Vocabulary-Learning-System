@@ -38,3 +38,17 @@ class AIProvider(ABC):
         Stream phản hồi từ AI cho hội thoại.
         """
         pass
+    
+    @abstractmethod
+    async def generate_sentence(self, prompt: str) -> str:
+        """
+        Generate một câu ví dụ đơn giản từ prompt.
+        Dùng cho background task tạo example sentences.
+        
+        Args:
+            prompt: Prompt template đã format
+            
+        Returns:
+            Câu ví dụ được generate
+        """
+        pass
