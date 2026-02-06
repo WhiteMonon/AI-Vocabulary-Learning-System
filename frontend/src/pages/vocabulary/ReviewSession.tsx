@@ -5,6 +5,7 @@ import { getVocabularies, reviewVocabulary } from '../../api/vocabulary';
 import { ReviewQuality, VocabularyReview } from '../../types/vocabulary';
 import Timer from '../../components/vocabulary/Timer';
 import ReviewFeedback from '../../components/vocabulary/ReviewFeedback';
+import { ReviewResultItem } from './ReviewResults';
 
 const ReviewSession: React.FC = () => {
     const navigate = useNavigate();
@@ -14,6 +15,8 @@ const ReviewSession: React.FC = () => {
     const [showFeedback, setShowFeedback] = useState(false);
     const [isCorrect, setIsCorrect] = useState(false);
     const [startTime, setStartTime] = useState<number>(Date.now());
+    const [sessionStartTime] = useState<number>(Date.now());
+    const [reviewResults, setReviewResults] = useState<ReviewResultItem[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Fetch due vocabularies
@@ -89,6 +92,18 @@ const ReviewSession: React.FC = () => {
     const handleNext = (quality: ReviewQuality) => {
         const timeSpent = Math.floor((Date.now() - startTime) / 1000);
 
+        // Lưu kết quả câu hiện tại
+        const resultItem: ReviewResultItem = {
+            id: currentVocab.id,
+            word: currentVocab.word,
+            definition: currentVocab.meanings?.[0]?.definition || '',
+            userAnswer: userAnswer,
+            isCorrect: isCorrect,
+            timeSpent: timeSpent,
+        };
+        const updatedResults = [...reviewResults, resultItem];
+        setReviewResults(updatedResults);
+
         reviewMutation.mutate({
             id: currentVocab.id,
             review: {
@@ -103,8 +118,14 @@ const ReviewSession: React.FC = () => {
             setShowFeedback(false);
             setStartTime(Date.now());
         } else {
-            // End of session
-            navigate('/dashboard'); // Or show a summary page
+            // End of session - navigate đến trang kết quả
+            const totalTime = Math.floor((Date.now() - sessionStartTime) / 1000);
+            navigate('/vocabulary/review/results', {
+                state: {
+                    results: updatedResults,
+                    totalTime: totalTime
+                }
+            });
         }
     };
 

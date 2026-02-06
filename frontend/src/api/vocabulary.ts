@@ -5,6 +5,7 @@ import {
     VocabularyUpdate,
     VocabularyListResponse,
     VocabularyReview,
+    VocabularyStats,
     QuizSessionResponse,
     QuizSubmit,
     VocabularyImportRequest,
@@ -51,6 +52,12 @@ export const reviewVocabulary = async (id: number, review: VocabularyReview): Pr
     return data;
 };
 
+// Lấy thống kê vocabulary của user
+export const getVocabularyStats = async (): Promise<VocabularyStats> => {
+    const { data } = await apiClient.get<VocabularyStats>('/api/v1/vocabulary/stats');
+    return data;
+};
+
 export const getQuizSession = async (limit: number = 10): Promise<QuizSessionResponse> => {
     const { data } = await apiClient.get<QuizSessionResponse>('/api/v1/vocabulary/quiz-session', {
         params: { limit },
@@ -75,3 +82,4 @@ export const exportVocabulary = async (format: 'json' | 'txt' | 'csv'): Promise<
     });
     return response.data;
 };
+

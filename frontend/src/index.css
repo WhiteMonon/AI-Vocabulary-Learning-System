@@ -7,10 +7,6 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,4 +19,34 @@ body {
   place-content: center;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #f3f4f6; /* bg-gray-100 */
+  color: #1f2937; /* text-gray-800 */
+}
+
+/* Input elements - đảm bảo text luôn hiển thị rõ ràng */
+input,
+textarea,
+select {
+  color: #1f2937; /* text-gray-800 */
+  background-color: #ffffff;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af; /* text-gray-400 */
+}
+
+/* Focus states */
+input:focus,
+textarea:focus,
+select:focus {
+  color: #111827; /* text-gray-900 */
+}
+
+/* Disabled states */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: #6b7280; /* text-gray-500 */
+  background-color: #f3f4f6; /* bg-gray-100 */
 }
