@@ -16,8 +16,10 @@ from sqlalchemy.orm import selectinload
 from app.models.vocabulary import Vocabulary
 from app.models.vocabulary_meaning import VocabularyMeaning
 from app.models.review_history import ReviewHistory
+from app.models.generated_question import GeneratedQuestion
 from app.models.enums import (
-    ReviewQuality, PracticeType, WordType, MeaningSource
+    ReviewQuality, PracticeType, WordType, MeaningSource,
+    QuestionType, QuestionDifficulty
 )
 from app.schemas.vocabulary import (
     VocabularyCreate,
@@ -84,6 +86,10 @@ class VocabularyService:
     Service layer cho vocabulary management.
     Implement business logic cho CRUD operations, SRS algorithm, import/export.
     """
+    
+    # Question Pool Management Constants
+    MAX_POOL_SIZE = 5        # Tối đa 5 câu hỏi cho mỗi từ vựng
+    USAGE_THRESHOLD = 3      # Mỗi câu dùng tối đa 3 lần trước khi refresh
     
     def __init__(self, session: Session):
         """
@@ -987,31 +993,168 @@ class VocabularyService:
         if not quiz_vocabs:
             return QuizSessionResponse(questions=[])
         
-        # 4. Generate questions
+        # 4. Generate questions (Smart Reuse Strategy)
         ai_provider = get_ai_provider()
         questions = []
+        import random 
         
         for vocab in quiz_vocabs:
             try:
-                # Lấy definition đầu tiên cho quiz
-                definition = vocab.meanings[0].definition if vocab.meanings else ""
+                # 4a. Check cache (GeneratedQuestion)
+                # Lấy tất cả câu hỏi đã từng generate cho từ này (loại Multiple Choice)
+                cached_questions = self.session.exec(
+                    select(GeneratedQuestion).where(
+                        GeneratedQuestion.vocabulary_id == vocab.id,
+                        GeneratedQuestion.question_type == QuestionType.MULTIPLE_CHOICE
+                    )
+                ).all()
                 
-                ai_q = await ai_provider.generate_question(
-                    vocab=vocab,
-                    practice_type=PracticeType.MULTIPLE_CHOICE
-                )
+                quiz_question = None
+                should_generate_new = False
                 
-                questions.append(QuizQuestion(
-                    id=vocab.id,
-                    word=vocab.word,
-                    question_text=ai_q.question_text,
-                    options=ai_q.options or {},
-                    correct_answer=ai_q.correct_answer,
-                    explanation=ai_q.explanation or "",
-                    grammar_explanation=ai_q.grammar_explanation
-                ))
+                if cached_questions:
+                    # Filter candidates for reuse (usage_count < THRESHOLD)
+                    candidates = [q for q in cached_questions if q.usage_count < self.USAGE_THRESHOLD]
+                    
+                    if candidates:
+                        # Case 1: Reuse existing question (Weighted Random)
+                        # Shuffle để tăng tính ngẫu nhiên khi có nhiều câu cùng usage_count
+                        random.shuffle(candidates)
+                        weights = [1.0 / (q.usage_count + 1) for q in candidates]
+                        selected_q = random.choices(candidates, weights=weights, k=1)[0]
+                        
+                        # Update usage count
+                        selected_q.usage_count += 1
+                        self.session.add(selected_q)
+                        self.session.commit()
+                        
+                        # Parse data
+                        q_data = selected_q.question_data
+                        quiz_question = self._parse_quiz_question(vocab, q_data)
+                        logger.info(f"✓ Reused question for '{vocab.word}' (Usage: {selected_q.usage_count}/{len(cached_questions)} total)")
+                        
+                    else:
+                        # Case 2: All questions used up (usage_count >= THRESHOLD)
+                        # Chiến lược: Generate mới + Recycle một số câu cũ để tạo sự đa dạng cho lần sau
+                        
+                        # 1. Xử lý Pool Size
+                        if len(cached_questions) >= self.MAX_POOL_SIZE:
+                            # Pool full → Delete oldest
+                            oldest_q = min(cached_questions, key=lambda q: q.created_at)
+                            self.session.delete(oldest_q)
+                            
+                            # Danh sách còn lại để recycle
+                            remaining_questions = [q for q in cached_questions if q.id != oldest_q.id]
+                            logger.info(f"♻️  Pool full for '{vocab.word}', deleting oldest (ID: {oldest_q.id})")
+                        else:
+                            remaining_questions = cached_questions
+                            logger.info(f"➕ Pool not full for '{vocab.word}', adding new question")
+
+                        # 2. Recycle (Reset usage) một số câu hỏi cũ để mix với câu mới
+                        # Mục đích: Tránh việc câu mới vừa tạo trở thành candidate duy nhất
+                        if remaining_questions:
+                            # Recycle 50% số lượng còn lại hoặc tối thiểu 2 câu
+                            recycle_count = min(len(remaining_questions), 2)
+                            recycled_qs = random.sample(remaining_questions, recycle_count)
+                            
+                            for q in recycled_qs:
+                                q.usage_count = 0
+                                self.session.add(q)
+                            
+                            logger.info(f"🔄 Recycled {len(recycled_qs)} old questions to mix with new one")
+
+                        self.session.commit()
+                        should_generate_new = True
+                else:
+                    # Case 3: No cached questions yet
+                    should_generate_new = True
+                    logger.info(f"🆕 No cached questions for '{vocab.word}', generating first question")
+                
+                
+                if should_generate_new:
+                    # Generate New Question via AI
+                    logger.info(f"Generating new question for vocab {vocab.id} ({vocab.word})")
+                    
+                    # Lấy definition đầu tiên cho quiz
+                    definition = vocab.meanings[0].definition if vocab.meanings else ""
+                    
+                    try:
+                        ai_q = await ai_provider.generate_question(
+                            vocab=vocab,
+                            practice_type=PracticeType.MULTIPLE_CHOICE
+                        )
+                        
+                        # Save to Cache (GeneratedQuestion)
+                        new_generated_q = GeneratedQuestion(
+                            user_id=user_id,
+                            vocabulary_id=vocab.id,
+                            question_type=QuestionType.MULTIPLE_CHOICE,
+                            difficulty=QuestionDifficulty.MEDIUM,
+                            question_data=ai_q.dict(), # Save AI response as JSON
+                            is_used=False,
+                            usage_count=1 # Initialize usage count
+                        )
+                        self.session.add(new_generated_q)
+                        self.session.commit() 
+                        
+                        quiz_question = QuizQuestion(
+                            id=vocab.id,
+                            word=vocab.word,
+                            question_text=ai_q.question_text,
+                            options=ai_q.options or {},
+                            correct_answer=ai_q.correct_answer,
+                            explanation=ai_q.explanation or "",
+                            grammar_explanation=ai_q.grammar_explanation
+                        )
+                        logger.info(f"Successfully generated new question for {vocab.word}")
+                    except Exception as gen_error:
+                        logger.error(f"Failed to generate question for vocab {vocab.id} ({vocab.word}): {gen_error}", exc_info=True)
+                        raise  # Re-raise để outer exception handler xử lý
+
+                questions.append(quiz_question)
+                
             except Exception as e:
-                logger.error(f"Error generating quiz for vocab {vocab.id}: {e}")
+                logger.error(f"Error generating quiz for vocab {vocab.id} ({vocab.word}): {e}", exc_info=True)
                 continue
         
         return QuizSessionResponse(questions=questions)
+
+    def _parse_quiz_question(self, vocab: Vocabulary, q_data: dict) -> QuizQuestion:
+        """Helper to parse raw JSON data into QuizQuestion model."""
+        # Handle options - có thể là dict hoặc list (dữ liệu cũ)
+        options_raw = q_data.get("options", {})
+        correct_answer_raw = q_data.get("correct_answer", "")
+        
+        if isinstance(options_raw, list):
+            # Convert list to dict với keys A, B, C, D
+            options = {chr(65 + i): opt for i, opt in enumerate(options_raw)}
+            
+            # Convert correct_answer nếu nó là text (tìm trong list)
+            if correct_answer_raw and correct_answer_raw not in ["A", "B", "C", "D"]:
+                # correct_answer là text → Tìm index trong list
+                try:
+                    idx = options_raw.index(correct_answer_raw)
+                    correct_answer = chr(65 + idx)  # Convert index to A, B, C, D
+                except ValueError:
+                    # Không tìm thấy → Giữ nguyên
+                    correct_answer = correct_answer_raw
+            else:
+                # correct_answer đã là A/B/C/D → Giữ nguyên
+                correct_answer = correct_answer_raw
+                
+        elif isinstance(options_raw, dict):
+            options = options_raw
+            correct_answer = correct_answer_raw
+        else:
+            options = {}
+            correct_answer = correct_answer_raw
+        
+        return QuizQuestion(
+            id=vocab.id,
+            word=vocab.word,
+            question_text=q_data.get("question_text", ""),
+            options=options,
+            correct_answer=correct_answer,
+            explanation=q_data.get("explanation", ""),
+            grammar_explanation=q_data.get("grammar_explanation", "")
+        )

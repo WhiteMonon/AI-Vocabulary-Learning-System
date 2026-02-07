@@ -9,7 +9,7 @@ class AIQuestion(BaseModel):
     correct_answer: str = Field(..., description="Đáp án đúng")
     explanation: Optional[str] = Field(None, description="Giải thích cho đáp án")
     grammar_explanation: Optional[str] = Field(None, description="Giải thích các cấu trúc ngữ pháp")
-    practice_type: PracticeType = Field(..., description="Loại bài tập")
+    practice_type: Optional[PracticeType] = Field(PracticeType.MULTIPLE_CHOICE, description="Loại bài tập")
 
 class AIEvaluation(BaseModel):
     """Schema cho kết quả đánh giá câu trả lời từ AI."""

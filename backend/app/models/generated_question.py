@@ -127,6 +127,12 @@ class GeneratedQuestion(BaseModel, table=True):
         default=False,
         description="True nếu question đã được dùng trong session"
     )
+
+    usage_count: int = Field(
+        sa_column=Column(Integer, nullable=False, default=0),
+        default=0,
+        description="Số lần câu hỏi đã được hiển thị trong Quiz"
+    )
     
     # Relationships
     session: "ReviewSession" = Relationship(back_populates="questions")
