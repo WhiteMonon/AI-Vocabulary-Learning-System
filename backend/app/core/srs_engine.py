@@ -69,13 +69,13 @@ class SRSEngine:
     # Constants cho algorithm
     MIN_EASINESS_FACTOR = 1.3
     MAX_EASINESS_FACTOR = 2.5
-    DEFAULT_EASINESS_FACTOR = 2.5
+    DEFAULT_EASINESS_FACTOR = 2.0  # Reduced from 2.5 to make intervals grow slower
     
     # Interval multipliers cho different qualities
     AGAIN_MULTIPLIER = 0.0  # Reset về 0
     HARD_MULTIPLIER = 0.5   # Giảm interval
     GOOD_MULTIPLIER = 1.0   # Giữ nguyên
-    EASY_MULTIPLIER = 1.3   # Tăng interval
+    EASY_MULTIPLIER = 1.15  # Reduced from 1.3 to avoid interval growing too fast
     
     @staticmethod
     def calculate_memory_strength(
@@ -354,7 +354,7 @@ class SRSEngine:
             return 1
         elif repetitions == 2:
             # Second successful review
-            return 6
+            return 3  # Reduced from 6 to 3 days
         else:
             # Subsequent reviews: apply SM-2 formula
             multiplier = (
