@@ -827,10 +827,17 @@ class VocabularyService:
         self,
         vocab_id: int,
         user_id: int,
-        review_data: VocabularyReview
+        review_data: VocabularyReview,
+        update_srs: bool = True
     ) -> Optional[Vocabulary]:
         """
         Update learning status của vocabulary sau khi review (SRS algorithm).
+        
+        Args:
+            vocab_id: ID của vocabulary
+            user_id: ID của user
+            review_data: Data review (quality, time_spent)
+            update_srs: Có update SRS algorithm không (True: Review, False: Quiz/Practice)
         """
         vocab = self.session.get(Vocabulary, vocab_id)
         if not vocab or vocab.user_id != user_id:
@@ -846,33 +853,37 @@ class VocabularyService:
         )
         self.session.add(review_history)
         
-        # Chuyển đổi trạng thái hiện tại sang SRSState
-        current_srs_state = SRSState(
-            easiness_factor=vocab.easiness_factor,
-            interval=vocab.interval,
-            repetitions=vocab.repetitions,
-            next_review_date=vocab.next_review_date
-        )
+        # Chỉ update SRS nếu được yêu cầu (Review mode)
+        if update_srs:
+            # Chuyển đổi trạng thái hiện tại sang SRSState
+            current_srs_state = SRSState(
+                easiness_factor=vocab.easiness_factor,
+                interval=vocab.interval,
+                repetitions=vocab.repetitions,
+                next_review_date=vocab.next_review_date
+            )
+            
+            # Gọi SRSEngine để tính toán trạng thái mới
+            quality = SRSReviewQuality(review_data.review_quality.value)
+            new_srs_state = SRSEngine.update_after_review(
+                current_state=current_srs_state,
+                review_quality=quality,
+                time_spent_seconds=review_data.time_spent_seconds
+            )
+            
+            # Cập nhật lại model
+            vocab.easiness_factor = new_srs_state.easiness_factor
+            vocab.interval = new_srs_state.interval
+            vocab.repetitions = new_srs_state.repetitions
+            vocab.next_review_date = new_srs_state.next_review_date
+            
+            self.session.add(vocab)
+            logger.info(f"Updated SRS for vocab {vocab_id}: EF={vocab.easiness_factor:.2f}")
+        else:
+            logger.info(f"Recorded practice for vocab {vocab_id} (No SRS update)")
         
-        # Gọi SRSEngine để tính toán trạng thái mới
-        quality = SRSReviewQuality(review_data.review_quality.value)
-        new_srs_state = SRSEngine.update_after_review(
-            current_state=current_srs_state,
-            review_quality=quality,
-            time_spent_seconds=review_data.time_spent_seconds
-        )
-        
-        # Cập nhật lại model
-        vocab.easiness_factor = new_srs_state.easiness_factor
-        vocab.interval = new_srs_state.interval
-        vocab.repetitions = new_srs_state.repetitions
-        vocab.next_review_date = new_srs_state.next_review_date
-        
-        self.session.add(vocab)
         self.session.commit()
         self.session.refresh(vocab)
-        
-        logger.info(f"Updated SRS for vocab {vocab_id}: EF={vocab.easiness_factor:.2f}")
         
         return vocab
     
@@ -932,6 +943,7 @@ class VocabularyService:
         limit: int = 10
     ) -> QuizSessionResponse:
         """Tạo phiên quiz trắc nghiệm sử dụng AI."""
+        # 1. Lấy due vocabularies (ưu tiên)
         query = select(Vocabulary).where(
             and_(
                 Vocabulary.user_id == user_id,
@@ -942,14 +954,44 @@ class VocabularyService:
         ).limit(limit)
         
         due_vocabs = list(self.session.exec(query).all())
+        quiz_vocabs = list(due_vocabs)
         
-        if not due_vocabs:
+        # 2. Nếu thiếu, lấy thêm random learned words (Unlimited Practice)
+        remaining = limit - len(quiz_vocabs)
+        if remaining > 0:
+            # Lấy list ID đã chọn để loại trừ
+            selected_ids = [v.id for v in quiz_vocabs]
+            
+            # Query random learned words (repetitions > 0)
+            filler_query = select(Vocabulary).where(
+                Vocabulary.user_id == user_id,
+                Vocabulary.repetitions > 0  # Chỉ lấy từ đã học
+            )
+            
+            if selected_ids:
+                filler_query = filler_query.where(Vocabulary.id.notin_(selected_ids))
+            
+            filler_query = filler_query.options(selectinload(Vocabulary.meanings)).order_by(
+                func.random()
+            ).limit(remaining)
+            
+            filler_vocabs = list(self.session.exec(filler_query).all())
+            quiz_vocabs.extend(filler_vocabs)
+            
+            if filler_vocabs:
+                logger.info(f"Added {len(filler_vocabs)} filler words for quiz session")
+        
+        # 3. Nếu vẫn chưa đủ (ví dụ user mới học ít từ), lấy thêm từ mới (optional)
+        # Hiện tại chỉ cần learned words là đủ cho practice
+        
+        if not quiz_vocabs:
             return QuizSessionResponse(questions=[])
         
+        # 4. Generate questions
         ai_provider = get_ai_provider()
         questions = []
         
-        for vocab in due_vocabs:
+        for vocab in quiz_vocabs:
             try:
                 # Lấy definition đầu tiên cho quiz
                 definition = vocab.meanings[0].definition if vocab.meanings else ""

@@ -4,22 +4,22 @@ Module chứa các prompt templates cho AI.
 """
 
 MULTIPLE_CHOICE_GEN = """
-Tạo một câu hỏi trắc nghiệm (Multiple Choice) chất lượng cao cho từ vựng sau:
+Tạo một câu hỏi trắc nghiệm (Multiple Choice) bằng TIẾNG ANH để kiểm tra từ vựng sau:
 Từ: {word}
 Định nghĩa: {definition}
 
 Yêu cầu trả về định dạng JSON:
 {{
-    "question_text": "Nội dung câu hỏi yêu cầu người dùng chọn đáp án đúng để hoàn thành câu hoặc giải nghĩa từ. Ưu tiên sử dụng câu ví dụ thực tế.",
+    "question_text": "Nội dung câu hỏi hoàn toàn bằng tiếng Anh. Yêu cầu người dùng chọn đáp án đúng để hoàn thành câu hoặc giải nghĩa từ. Ưu tiên sử dụng câu ví dụ thực tế.",
     "options": {{
-        "A": "Lựa chọn 1",
-        "B": "Lựa chọn 2",
-        "C": "Lựa chọn 3",
-        "D": "Lựa chọn 4"
+        "A": "Lựa chọn 1 (Tiếng Anh)",
+        "B": "Lựa chọn 2 (Tiếng Anh)",
+        "C": "Lựa chọn 3 (Tiếng Anh)",
+        "D": "Lựa chọn 4 (Tiếng Anh)"
     }},
     "correct_answer": "A/B/C/D",
-    "explanation": "Giải thích chi tiết tại sao đáp án đó đúng và tại sao các lựa chọn khác lại sai trong ngữ cảnh này. Hãy viết bằng tiếng Việt.",
-    "grammar_explanation": "Giải thích các cấu trúc ngữ pháp quan trọng xuất hiện trong câu hỏi hoặc cách chia từ (nếu có). Viết bằng tiếng Việt.",
+    "explanation": "Giải thích chi tiết tại sao đáp án đó đúng và tại sao các lựa chọn khác lại sai trong ngữ cảnh này. Phần giải thích này hãy viết bằng TIẾNG VIỆT để người học dễ hiểu.",
+    "grammar_explanation": "Giải thích các cấu trúc ngữ pháp quan trọng xuất hiện trong câu hỏi hoặc cách chia từ (nếu có). Viết bằng TIẾNG VIỆT.",
     "practice_type": "multiple_choice"
 }}
 """

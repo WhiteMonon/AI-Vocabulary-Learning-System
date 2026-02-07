@@ -342,7 +342,8 @@ def submit_quiz_answer(
     vocab = service.update_learning_status(
         vocab_id=submit_in.vocabulary_id,
         user_id=current_user.id,
-        review_data=review_data
+        review_data=review_data,
+        update_srs=False  # Quiz/Practice does not affect SRS
     )
     
     if not vocab:
